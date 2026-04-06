@@ -1,0 +1,85 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build Folders
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio cache/options
+*.cache
+*.dbmdl
+*.VC.db
+*.VC.VC.opendb
+
+# Rider
+.idea/
+*.sln.iml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/packages/
+
+# Visual Studio temporary files
+*.tmp
+*.temp
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+
+# Build results
+*.dll
+*.exe
+*.app
+*.appx
+*.msi
+*.msix
+*.msixbundle
+*.zip
+*.Publish.xml
+*.publishsettings
+
+# Publish folder
+publish/
+
+# User-specific files
+*.userprefs
+*.suo
+*.user
+*.userosscache
+
+# Generated files
+Generated
+iisexpress*/
+
+# WPF and designer generated files
+*.pdb
+*.cachefile
+*.ilk
+*.meta
+*.obj
+*.ipr
+*.iws
+
+# Rider and ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Package directories
+node_modules/
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

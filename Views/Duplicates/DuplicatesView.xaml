@@ -1,0 +1,93 @@
+<UserControl x:Class="OrganizadorDeFotos.DesktopApp.Views.Duplicates.DuplicatesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid Background="#FAFAFA">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Lista de Grupos de Similitud -->
+        <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+                    <TextBlock Text="Grupos de Similitud" FontSize="14" FontWeight="Bold"/>
+                </Border>
+
+                <ListBox Grid.Row="1" x:Name="SimilarityGroupsListBox" SelectionChanged="SimilarityGroupsListBox_SelectionChanged" Padding="8">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayName}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- Zona de Previsualización -->
+        <Grid Grid.Column="1" Background="#FAFAFA">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+                <TextBlock Text="Previsualización de Grupo" FontSize="14" FontWeight="Bold"/>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="GroupPreviewItemsControl" Margin="15">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="5">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Panel de Información -->
+                                <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#D0D0D0" BorderThickness="1" Padding="5" Margin="0,0,0,5">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0" Content="{Binding FileName}" IsChecked="{Binding IsSelected}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SizeKB, StringFormat='Tamaño: {0} KB'}" FontSize="10" VerticalAlignment="Center" Margin="10,0"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Dimensions}" FontSize="10" VerticalAlignment="Center" Margin="10,0"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding QualityIndicator}" FontSize="10" FontWeight="Bold" Foreground="Green" VerticalAlignment="Center" Margin="10,0"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Imagen -->
+                                <Image Grid.Row="1" Source="{Binding ImageUri}" Stretch="Uniform" MaxWidth="300" MaxHeight="200"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Botón Procesar Grupo -->
+            <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="12">
+                <Button x:Name="ProcessGroupButton" Content="Procesar Grupo" Click="ProcessGroupButton_Click" Padding="10" Background="#28A745" Foreground="White" FontSize="12" IsEnabled="False"/>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

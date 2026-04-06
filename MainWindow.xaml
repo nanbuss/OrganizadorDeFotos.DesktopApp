@@ -1,0 +1,136 @@
+<Window x:Class="OrganizadorDeFotos.DesktopApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Duplicates"
+        Title="Organizador de Fotos" Height="700" Width="1200" Background="#F5F5F5">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Barra superior con selector de carpeta -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="15">
+            <DockPanel>
+                <Label Content="Carpeta:" VerticalAlignment="Center" FontSize="14" FontWeight="Bold" DockPanel.Dock="Left"/>
+                <Button Content="Seleccionar Carpeta" Click="BrowseFolder_Click" Padding="12,8" Foreground="White" Background="#0078D4" FontSize="12" DockPanel.Dock="Right" Width="150"/>
+                <TextBlock x:Name="FolderPathTextBlock" Text="Selecciona una carpeta..." VerticalAlignment="Center" Margin="10,0" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Contenedor principal con dos paneles -->
+        <Grid Grid.Row="1" Margin="15">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Panel izquierdo: Lista de archivos + Herramientas -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="0,0,15,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Encabezado Archivos -->
+                    <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+                        <TextBlock Text="Archivos Soportados" FontSize="14" FontWeight="Bold"/>
+                    </Border>
+                    
+                    <!-- ListBox de archivos -->
+                    <ListBox Grid.Row="1" x:Name="FileListBox" SelectionChanged="FileListBox_SelectionChanged" SelectionMode="Extended" KeyDown="FileListBox_KeyDown" Padding="8" ItemsSource="{Binding FileNames}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip="{Binding}"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Indicador de archivos no soportados -->
+                    <Border Grid.Row="2" Background="#FFF3CD" BorderBrush="#FFC107" BorderThickness="1" Padding="10" Margin="8,8,8,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="Archivos No Soportados" FontWeight="Bold" Foreground="#856404"/>
+                                <TextBlock x:Name="UnsupportedCountLabel" Text="0 archivos" Foreground="#856404" FontSize="12"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Ver" Click="ShowUnsupportedFiles_Click" Padding="8,4" Margin="10,0,0,0" Background="#FFC107" Foreground="Black" FontSize="11"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Botones de acciones -->
+                    <StackPanel Grid.Row="3" Orientation="Vertical" Margin="8">
+                        <Button x:Name="MoveUnsupportedButton" Content="Mover No Soportados" Click="MoveUnsupportedFiles_Click" Padding="10" Background="#DC3545" Foreground="White" FontSize="12" IsEnabled="False" Margin="0,0,0,8"/>
+                        <Button x:Name="DiscardButton" Content="Descartar" Click="DiscardSelectedFiles_Click" Padding="10" Background="#FF6B35" Foreground="White" FontSize="12" IsEnabled="False" Margin="0,0,0,8"/>
+                        <Button x:Name="RenameByDateButton" Content="Renombrar por Fecha" Click="RenameByDate_Click" Padding="10" Background="#28A745" Foreground="White" FontSize="12"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Panel derecho: TabControl con vistas -->
+            <Border Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4">
+                <TabControl x:Name="MainTabControl" Background="White">
+                    <!-- Tab 1: Explorador (Preview actual) -->
+                    <TabItem Header="Explorador" Background="White">
+                        <Grid Background="#FAFAFA">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+                                <TextBlock Text="Vista Previa" FontSize="14" FontWeight="Bold"/>
+                            </Border>
+                            
+                            <Grid Grid.Row="1" Background="#FAFAFA">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <!-- Imagen -->
+                                    <Image x:Name="ImagePreview" Stretch="Uniform" MaxWidth="600" MaxHeight="450" Margin="15"/>
+                                    
+                                    <!-- Video -->
+                                    <MediaElement x:Name="VideoPreview" Stretch="Uniform" MaxWidth="600" MaxHeight="450" Margin="15" LoadedBehavior="Manual"/>
+                                    
+                                    <!-- Mensaje cuando no hay archivo seleccionado -->
+                                    <TextBlock x:Name="NoFileMessage" Text="Selecciona un archivo para ver su vista previa" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#999999" FontSize="14"/>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Tab 2: Limpieza (para módulos posteriores) -->
+                    <TabItem Header="Limpieza" Background="White">
+                        <Grid Background="#FAFAFA">
+                            <TextBlock Text="Módulo de Limpieza - Próximamente" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#999999" FontSize="14"/>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Tab 3: Duplicados -->
+                    <TabItem Header="Duplicados" Background="White">
+                        <views:DuplicatesView x:Name="DuplicatesViewControl" />
+                    </TabItem>
+
+                    <!-- Tab 4: Organizador (para módulos posteriores) -->
+                    <TabItem Header="Organizador" Background="White">
+                        <Grid Background="#FAFAFA">
+                            <TextBlock Text="Módulo de Organización - Próximamente" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#999999" FontSize="14"/>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Border>
+        </Grid>
+
+        <!-- Panel de Notificaciones (Toast) -->
+        <Border x:Name="NotificationPanel" Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Top" 
+                Background="#2C3E50" BorderBrush="#27AE60" BorderThickness="0,3,0,0" CornerRadius="4" 
+                Padding="15" Margin="20" MaxWidth="350" Opacity="0" IsHitTestVisible="False">
+            <TextBlock x:Name="NotificationText" Text="" Foreground="White" TextWrapping="Wrap" FontSize="12"/>
+        </Border>
+    </Grid>
+</Window>
