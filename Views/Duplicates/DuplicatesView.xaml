@@ -5,6 +5,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
     <Grid Background="#FAFAFA">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
@@ -45,7 +48,7 @@
                 <TextBlock Text="Previsualización de Grupo" FontSize="14" FontWeight="Bold"/>
             </Border>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                 <ItemsControl x:Name="GroupPreviewItemsControl" Margin="15">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -54,7 +57,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="5">
+                            <Grid Margin="5" MinWidth="320">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
@@ -76,8 +79,39 @@
                                     </Grid>
                                 </Border>
 
-                                <!-- Imagen -->
-                                <Image Grid.Row="1" Source="{Binding ImageUri}" Stretch="Uniform" MaxWidth="300" MaxHeight="200"/>
+                                <!-- Imagen con lupa y badge -->
+                                <Border Grid.Row="1" CornerRadius="10" BorderThickness="1" Background="White">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="#D0D0D0"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsHighestQuality}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#D19B20"/>
+                                                    <Setter Property="BorderThickness" Value="2"/>
+                                                    <Setter Property="Background" Value="#FFFDF2CC"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Grid ClipToBounds="True">
+                                        <Image x:Name="PreviewImage" Source="{Binding ImageSource}" Stretch="Uniform" SnapsToDevicePixels="True"
+                                               MouseEnter="PreviewImage_MouseEnter"
+                                               MouseLeave="PreviewImage_MouseLeave"
+                                               MouseMove="PreviewImage_MouseMove"/>
+
+                                        <Canvas IsHitTestVisible="False">
+                                            <Ellipse x:Name="ZoomLens" Width="130" Height="130" Stroke="White" StrokeThickness="2" Visibility="Collapsed" Panel.ZIndex="2" RenderTransformOrigin="0.5,0.5">
+                                                <Ellipse.Fill>
+                                                    <VisualBrush x:Name="ZoomBrush" Visual="{Binding ElementName=PreviewImage}" ViewboxUnits="RelativeToBoundingBox" Stretch="UniformToFill"/>
+                                                </Ellipse.Fill>
+                                            </Ellipse>
+                                        </Canvas>
+
+                                        <TextBlock Text="RECOMENDADA" Visibility="{Binding IsHighestQuality, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                   Background="#D19B20" Foreground="White" FontWeight="Bold" FontSize="10" Padding="6,3" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Panel.ZIndex="3"/>
+                                    </Grid>
+                                </Border>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -89,5 +123,13 @@
                 <Button x:Name="ProcessGroupButton" Content="Procesar Grupo" Click="ProcessGroupButton_Click" Padding="10" Background="#28A745" Foreground="White" FontSize="12" IsEnabled="False"/>
             </Border>
         </Grid>
+
+        <!-- Overlay de carga -->
+        <Border Background="#88000000" Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}" Grid.ColumnSpan="2">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="280" Height="18" Margin="0,0,0,12"/>
+                <TextBlock Text="Analizando similitudes y calculando hashes..." Foreground="White" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

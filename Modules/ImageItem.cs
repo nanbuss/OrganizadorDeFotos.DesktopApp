@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Numerics;
 using DupImageLib;
@@ -23,8 +24,28 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
         public string QualityIndicator => IsHighestQuality ? "Mayor Calidad" : "";
         public bool IsHighestQuality { get; set; }
 
+        private ImageSource? _imageSource;
+        public ImageSource ImageSource => _imageSource ??= LoadImageSource();
+
         public Uri ImageUri => new Uri(FilePath, UriKind.Absolute);
         public bool HasExifData { get; internal set; }
+
+        private ImageSource LoadImageSource()
+        {
+            var bitmap = new BitmapImage();
+            using var fileStream = File.OpenRead(FilePath);
+            using var memoryStream = new MemoryStream();
+            fileStream.CopyTo(memoryStream);
+            memoryStream.Position = 0;
+
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bitmap.StreamSource = memoryStream;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
 
         public static ImageItem FromFile(string filePath)
         {

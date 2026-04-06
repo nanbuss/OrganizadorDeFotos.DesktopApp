@@ -1,27 +1,46 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using OrganizadorDeFotos.DesktopApp.Modules;
 
 namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
 {
-    public partial class DuplicatesView : UserControl
+    public partial class DuplicatesView : UserControl, INotifyPropertyChanged
     {
         private ObservableCollection<SimilarityGroup> _similarityGroups = new();
         private SimilarityGroup? _selectedGroup;
+        private bool _isProcessing;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         public string CurrentFolderPath { get; set; }
+
+        public bool IsProcessing
+        {
+            get => _isProcessing;
+            set
+            {
+                if (_isProcessing == value) return;
+                _isProcessing = value;
+                OnPropertyChanged(nameof(IsProcessing));
+            }
+        }
 
         public DuplicatesView()
         {
             InitializeComponent();
+            DataContext = this;
             SimilarityGroupsListBox.ItemsSource = _similarityGroups;
         }
 
         public async void LoadDuplicates(string folderPath)
         {
+            IsProcessing = true;
             try
             {
                 var groups = await DuplicateComparer.FindSimilarGroupsAsync(folderPath);
@@ -34,6 +53,10 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al cargar duplicados: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
             }
         }
 
@@ -99,6 +122,81 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             {
                 MessageBox.Show($"Error al procesar grupo: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void PreviewImage_MouseEnter(object sender, MouseEventArgs e)
+        {
+            PreviewImage_MouseMove(sender, e);
+        }
+
+        private void PreviewImage_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (sender is not Image image) return;
+            if (image.ActualWidth <= 0 || image.ActualHeight <= 0) return;
+
+            var position = e.GetPosition(image);
+            var relative = new Point(position.X / image.ActualWidth, position.Y / image.ActualHeight);
+            UpdateAllZoomLenses(relative, true);
+        }
+
+        private void PreviewImage_MouseLeave(object sender, MouseEventArgs e)
+        {
+            UpdateAllZoomLenses(null, false);
+        }
+
+        private void UpdateAllZoomLenses(Point? relativePoint, bool visible)
+        {
+            if (_selectedGroup == null) return;
+
+            foreach (var item in _selectedGroup.Images)
+            {
+                var container = GroupPreviewItemsControl.ItemContainerGenerator.ContainerFromItem(item) as DependencyObject;
+                if (container == null) continue;
+
+                var lens = FindDescendantByName<Ellipse>(container, "ZoomLens");
+                var image = FindDescendantByName<Image>(container, "PreviewImage");
+                if (lens == null || image == null) continue;
+
+                lens.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                if (!visible || relativePoint == null) continue;
+
+                if (lens.Fill is VisualBrush brush)
+                {
+                    const double zoomFactor = 0.1;
+                    var x = Math.Max(0, Math.Min(1 - zoomFactor, relativePoint.Value.X - (zoomFactor / 2)));
+                    var y = Math.Max(0, Math.Min(1 - zoomFactor, relativePoint.Value.Y - (zoomFactor / 2)));
+                    brush.Viewbox = new Rect(x, y, zoomFactor, zoomFactor);
+                }
+
+                var centerX = relativePoint.Value.X * image.ActualWidth;
+                var centerY = relativePoint.Value.Y * image.ActualHeight;
+                Canvas.SetLeft(lens, centerX - (lens.Width / 2));
+                Canvas.SetTop(lens, centerY - (lens.Height / 2));
+            }
+        }
+
+        private static T? FindDescendantByName<T>(DependencyObject parent, string name) where T : DependencyObject
+        {
+            if (parent == null) return null;
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typed && child is FrameworkElement fe && fe.Name == name)
+                {
+                    return typed;
+                }
+
+                var result = FindDescendantByName<T>(child, name);
+                if (result != null) return result;
+            }
+
+            return null;
+        }
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }
