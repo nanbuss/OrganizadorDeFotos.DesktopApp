@@ -1,0 +1,42 @@
+<Window x:Class="OrganizadorDeFotos.DesktopApp.Views.Duplicates.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuración de Duplicados" SizeToContent="WidthAndHeight" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        Background="White" FontFamily="Segoe UI" FontSize="12">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Ajustes de detección de duplicados" FontSize="16" FontWeight="Bold" Margin="0,0,0,16"/>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <TextBlock Text="Ventana de Tiempo (segundos)" FontWeight="SemiBold"/>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6,0,0">
+                <Slider x:Name="TimeThresholdSlider" Minimum="1" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Width="280" ValueChanged="TimeThresholdSlider_ValueChanged"/>
+                <TextBlock x:Name="TimeThresholdValue" Text="10 s" Margin="12,0,0,0" VerticalAlignment="Center" Width="60"/>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+            <TextBlock Text="Tolerancia de Similitud (Hash)" FontWeight="SemiBold"/>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6,0,0">
+                <Slider x:Name="SimilarityThresholdSlider" Minimum="0.60" Maximum="0.99" TickFrequency="0.01" IsSnapToTickEnabled="True" Width="280" ValueChanged="SimilarityThresholdSlider_ValueChanged"/>
+                <TextBlock x:Name="SimilarityThresholdValue" Text="0.90" Margin="12,0,0,0" VerticalAlignment="Center" Width="60"/>
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="3" Background="#FFF7E6" BorderBrush="#FFCC80" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,16">
+            <TextBlock Text="Nota: Aumentar el tiempo o disminuir el umbral de similitud puede afectar el rendimiento y el tiempo de escaneo si hay muchas fotografías." TextWrapping="Wrap" Foreground="#6B4D00"/>
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancelar" Width="90" Click="CancelButton_Click" Background="#E0E0E0" Foreground="Black" Margin="0,0,8,0"/>
+            <Button Content="Guardar" Width="90" Click="SaveButton_Click" Background="#0078D4" Foreground="White"/>
+        </StackPanel>
+    </Grid>
+</Window>

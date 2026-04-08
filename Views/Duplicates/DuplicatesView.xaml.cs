@@ -18,6 +18,8 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
         private bool _isProcessing;
         private bool _hasNoDuplicates;
         private bool _hasDuplicates;
+        private double _timeThreshold = 10.0;
+        private double _similarityThreshold = 0.90;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -63,6 +65,8 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             SimilarityGroupsListBox.ItemsSource = _similarityGroups;
             HasNoDuplicates = false;
             HasDuplicates = false;
+            _timeThreshold = 10.0;
+            _similarityThreshold = 0.90;
         }
 
         public async void LoadDuplicates(string folderPath)
@@ -74,7 +78,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             try
             {
                 // Forzar que la notificación de carga se muestre al menos 2 segundos
-                var loadTask = DuplicateComparer.FindSimilarGroupsAsync(folderPath);
+                var loadTask = DuplicateComparer.FindSimilarGroupsAsync(folderPath, _timeThreshold, _similarityThreshold);
                 var delayTask = Task.Delay(2000);
 
                 await Task.WhenAll(loadTask, delayTask);
@@ -170,6 +174,25 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al procesar grupo: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new SettingsDialog(_timeThreshold, _similarityThreshold)
+            {
+                Owner = Window.GetWindow(this)
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _timeThreshold = dialog.TimeThreshold;
+                _similarityThreshold = dialog.SimilarityThreshold;
+
+                if (!string.IsNullOrEmpty(CurrentFolderPath))
+                {
+                    LoadDuplicates(CurrentFolderPath);
+                }
             }
         }
 

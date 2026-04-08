@@ -23,7 +23,9 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
 
             foreach (var image in Images)
             {
-                image.IsHighestQuality = (image == highestQuality);
+                var isBest = image == highestQuality;
+                image.IsHighestQuality = isBest;
+                image.IsSelected = isBest;
             }
         }
     }

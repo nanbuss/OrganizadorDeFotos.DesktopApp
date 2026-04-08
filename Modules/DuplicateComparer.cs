@@ -10,7 +10,7 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
     {
         private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff" };
 
-        public static async Task<ObservableCollection<SimilarityGroup>> FindSimilarGroupsAsync(string folderPath)
+        public static async Task<ObservableCollection<SimilarityGroup>> FindSimilarGroupsAsync(string folderPath, double timeThreshold, double similarityThreshold)
         {
             var groups = new ObservableCollection<SimilarityGroup>();
 
@@ -51,15 +51,15 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
                     var next = sortedImages[j];
                     if (processed.Contains(next.FilePath)) continue;
 
-                    // Si ya pasamos los 10 segundos, no habrá más similares en este grupo
+                    // Si ya pasamos la ventana de tiempo, no habrá más similares en este grupo
                     if (current.CaptureDate.HasValue && next.CaptureDate.HasValue)
                     {
                         var timeDiff = (next.CaptureDate.Value - current.CaptureDate.Value).TotalSeconds;
-                        if (timeDiff > 10) break; // Optimización clave: rompemos el bucle interno
+                        if (timeDiff > timeThreshold) break; // Optimización clave: rompemos el bucle interno
                     }
 
                     // Verificar similitud visual
-                    if (current.SimilarityTo(next) > 0.90)
+                    if (current.SimilarityTo(next) > similarityThreshold)
                     {
                         group.Images.Add(next);
                         processed.Add(next.FilePath);

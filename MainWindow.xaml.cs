@@ -337,6 +337,9 @@ namespace OrganizadorDeFotos.DesktopApp
 
         private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Ignorar cambios de selección que provengan de controles internos como ListBox.
+            if (e.OriginalSource != MainTabControl) return;
+
             // Cargar duplicados cuando se selecciona el tab de Duplicados
             if (MainTabControl.SelectedIndex == 2 && !string.IsNullOrEmpty(_currentFolderPath))
             {
