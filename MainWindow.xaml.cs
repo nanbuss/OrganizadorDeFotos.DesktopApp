@@ -64,6 +64,10 @@ namespace OrganizadorDeFotos.DesktopApp
                 DuplicatesViewControl.CurrentFolderPath = _currentFolderPath;
                 DuplicatesViewControl.LoadDuplicates(_currentFolderPath);
 
+                // Cargar carpeta en limpieza inteligente
+                CleaningViewControl.CurrentFolderPath = _currentFolderPath;
+                CleaningViewControl.SetFolder(_currentFolderPath);
+
                 // Limpiar vista previa
                 ClearPreview();
 
