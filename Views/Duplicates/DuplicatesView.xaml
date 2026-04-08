@@ -7,6 +7,7 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <BooleanToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
     </UserControl.Resources>
     <Grid Background="#FAFAFA">
         <Grid.ColumnDefinitions>
@@ -49,7 +50,14 @@
             </Border>
 
             <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <ItemsControl x:Name="GroupPreviewItemsControl" Margin="15">
+                <Grid>
+                    <!-- Mensaje cuando no hay duplicados -->
+                    <TextBlock x:Name="NoDuplicatesMessage" Text="No se encontraron fotos duplicadas" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center" 
+                               Foreground="#999999" FontSize="16" Visibility="{Binding HasNoDuplicates, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    
+                    <!-- ItemsControl para mostrar duplicados -->
+                    <ItemsControl x:Name="GroupPreviewItemsControl" Margin="15" Visibility="{Binding HasDuplicates, Converter={StaticResource BoolToVisibilityConverter}}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal"/>
@@ -115,7 +123,8 @@
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ItemsControl>
+                </Grid>
             </ScrollViewer>
 
             <!-- Botón Procesar Grupo -->

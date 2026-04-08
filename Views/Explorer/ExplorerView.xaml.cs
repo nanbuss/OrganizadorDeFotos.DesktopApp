@@ -1,26 +1,43 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using OrganizadorDeFotos.DesktopApp.Loader;
 using OrganizadorDeFotos.DesktopApp.Modules;
 
-namespace OrganizadorDeFotos.DesktopApp
+namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
 {
-    public partial class MainWindow : Window
+    public partial class ExplorerView : UserControl, INotifyPropertyChanged
     {
         private string? _currentFolderPath;
         private ObservableCollection<string> _fileNames = new();
         private List<string> _unsupportedFiles = new();
+        private bool _isProcessing;
         private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff" };
         private static readonly string[] VideoExtensions = { ".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm" };
 
-        public MainWindow()
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public bool IsProcessing
+        {
+            get => _isProcessing;
+            set
+            {
+                if (_isProcessing == value) return;
+                _isProcessing = value;
+                OnPropertyChanged(nameof(IsProcessing));
+            }
+        }
+
+        public ExplorerView()
         {
             InitializeComponent();
+            DataContext = this;
             FileListBox.ItemsSource = _fileNames;
             NoFileMessage.Visibility = Visibility.Visible;
             ImagePreview.Visibility = Visibility.Collapsed;
@@ -28,53 +45,64 @@ namespace OrganizadorDeFotos.DesktopApp
             UpdateDiscardButton();
         }
 
-        private void BrowseFolder_Click(object sender, RoutedEventArgs e)
+        protected void OnPropertyChanged(string propertyName)
         {
-            var dialog = new OpenFolderDialog();
-            if (dialog.ShowDialog() == true)
-            {
-                LoadFolder(dialog.FolderName);
-            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private void LoadFolder(string folderPath)
+        public void LoadFolder(string folderPath)
         {
             try
             {
                 _currentFolderPath = folderPath;
-                FolderPathTextBlock.Text = folderPath;
-                _fileNames.Clear();
-
+                
                 var files = Directory.GetFiles(folderPath);
-                var mediaFiles = files.Where(f => 
+                var mediaFiles = files.Where(f =>
                     ImageExtensions.Contains(Path.GetExtension(f).ToLower()) ||
                     VideoExtensions.Contains(Path.GetExtension(f).ToLower())
-                ).OrderBy(f => Path.GetFileName(f));
-
-                foreach (var file in mediaFiles)
-                {
-                    _fileNames.Add(Path.GetFileName(file));
-                }
+                ).OrderBy(f => Path.GetFileName(f)).ToList();
 
                 // Detectar archivos no soportados (Módulo 1)
-                _unsupportedFiles = UnsupportedFileFinder.FindUnsupportedFiles(folderPath);
-                UpdateUnsupportedFilesUI();
+                var unsupportedFiles = UnsupportedFileFinder.FindUnsupportedFiles(folderPath);
 
-                // Cargar grupos de duplicados (Módulo 3)
-                DuplicatesViewControl.CurrentFolderPath = _currentFolderPath;
-                DuplicatesViewControl.LoadDuplicates(_currentFolderPath);
-
-                // Limpiar vista previa
-                ClearPreview();
-
-                if (_fileNames.Count == 0 && _unsupportedFiles.Count == 0)
+                // Actualizar UI en el dispatcher thread
+                Dispatcher.Invoke(() =>
                 {
-                    MessageBox.Show("No se encontraron archivos en esta carpeta.", "Carpeta vacía", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
+                    _fileNames.Clear();
+                    foreach (var file in mediaFiles)
+                    {
+                        _fileNames.Add(Path.GetFileName(file));
+                    }
+
+                    _unsupportedFiles = unsupportedFiles;
+                    UpdateUnsupportedFilesUI();
+                    ClearPreview();
+
+                    if (_fileNames.Count == 0 && _unsupportedFiles.Count == 0)
+                    {
+                        MessageBox.Show("No se encontraron archivos en esta carpeta.", "Carpeta vacía", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                });
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al cargar la carpeta: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        public async void RefreshFolder()
+        {
+            if (!string.IsNullOrEmpty(_currentFolderPath))
+            {
+                IsProcessing = true;
+                try
+                {
+                    await Task.Run(() => LoadFolder(_currentFolderPath));
+                }
+                finally
+                {
+                    IsProcessing = false;
+                }
             }
         }
 
@@ -181,37 +209,34 @@ namespace OrganizadorDeFotos.DesktopApp
 
             try
             {
-                // Clear preview to release file locks
                 ClearPreview();
 
-                // Move files asynchronously
                 await Task.Run(() => FileManager.MoveFilesToAuxiliar(
                     selectedFiles.Select(f => Path.Combine(_currentFolderPath!, f)).ToList(),
                     _currentFolderPath!,
                     "Descartes_Manuales"));
 
-                // Remove from ObservableCollection
-                foreach (var file in selectedFiles)
+                // Remove from ObservableCollection on UI thread
+                Dispatcher.Invoke(() =>
                 {
-                    _fileNames.Remove(file);
-                }
+                    foreach (var file in selectedFiles)
+                    {
+                        _fileNames.Remove(file);
+                    }
 
-                // Select the next available item (if any)
-                if (_fileNames.Count > 0)
-                {
-                    FileListBox.SelectedIndex = Math.Min(FileListBox.SelectedIndex, _fileNames.Count - 1);
-                }
+                    if (_fileNames.Count > 0)
+                    {
+                        FileListBox.SelectedIndex = Math.Min(FileListBox.SelectedIndex, _fileNames.Count - 1);
+                    }
 
-                UpdateDiscardButton();
-                ShowNotification($"✓ {selectedFiles.Count} archivos descartados exitosamente.", isSuccess: true);
+                    UpdateDiscardButton();
+                });
             }
             catch (Exception ex)
             {
-                ShowNotification($"✗ Error al descartar archivos: {ex.Message}", isSuccess: false);
+                MessageBox.Show($"Error al descartar archivos: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
-        // ==================== MÓDULO 1: Archivos No Soportados ====================
 
         private void ShowUnsupportedFiles_Click(object sender, RoutedEventArgs e)
         {
@@ -228,7 +253,7 @@ namespace OrganizadorDeFotos.DesktopApp
                 Width = 500,
                 Height = 400,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this
+                Owner = Window.GetWindow(this)
             };
 
             var textBox = new TextBox
@@ -244,103 +269,19 @@ namespace OrganizadorDeFotos.DesktopApp
             window.ShowDialog();
         }
 
-        private void MoveUnsupportedFiles_Click(object sender, RoutedEventArgs e)
+        private async void MoveUnsupportedFiles_Click(object sender, RoutedEventArgs e)
         {
-            if (_unsupportedFiles.Count == 0)
-            {
-                ShowNotification("No hay archivos no soportados para mover.", isSuccess: false);
-                return;
-            }
+            if (_unsupportedFiles.Count == 0) return;
 
             try
             {
-                FileManager.MoveFilesToAuxiliar(_unsupportedFiles, _currentFolderPath!, "NoSoportados");
+                await Task.Run(() => FileManager.MoveFilesToAuxiliar(_unsupportedFiles, _currentFolderPath!, "No_Soportados"));
                 _unsupportedFiles.Clear();
                 UpdateUnsupportedFilesUI();
-                ShowNotification("✓ Archivos no soportados movidos exitosamente.", isSuccess: true);
             }
             catch (Exception ex)
             {
-                ShowNotification($"✗ Error al mover archivos: {ex.Message}", isSuccess: false);
-            }
-        }
-
-        private void RenameByDate_Click(object sender, RoutedEventArgs e)
-        {
-            if (_fileNames.Count == 0)
-            {
-                ShowNotification("No hay archivos para renombrar.", isSuccess: false);
-                return;
-            }
-
-            try
-            {
-                var filePaths = _fileNames.Select(f => Path.Combine(_currentFolderPath ?? "", f)).ToList();
-                var renamedFiles = FileRenamer.RenameFilesWithCollisionHandling(filePaths);
-
-                _fileNames.Clear();
-                foreach (var file in renamedFiles.OrderBy(f => f))
-                {
-                    _fileNames.Add(Path.GetFileName(file));
-                }
-
-                ClearPreview();
-                ShowNotification($"✓ {renamedFiles.Count} archivos renombrados exitosamente.", isSuccess: true);
-            }
-            catch (Exception ex)
-            {
-                ShowNotification($"✗ Error al renombrar archivos: {ex.Message}", isSuccess: false);
-            }
-        }
-
-        private async void ShowNotification(string message, bool isSuccess)
-        {
-            // Set colors based on success/error
-            NotificationPanel.BorderBrush = new System.Windows.Media.SolidColorBrush(
-                isSuccess ? System.Windows.Media.Color.FromRgb(0x27, 0xAE, 0x60) : System.Windows.Media.Color.FromRgb(0xE7, 0x4C, 0x3C));
-            NotificationPanel.Background = new System.Windows.Media.SolidColorBrush(
-                isSuccess ? System.Windows.Media.Color.FromRgb(0x27, 0xAE, 0x60) : System.Windows.Media.Color.FromRgb(0xE7, 0x4C, 0x3C));
-            NotificationText.Text = message;
-
-            // Show notification with fade-in animation
-            var storyboard = new System.Windows.Media.Animation.Storyboard();
-            var fadeIn = new System.Windows.Media.Animation.DoubleAnimation
-            {
-                From = 0,
-                To = 1,
-                Duration = new System.TimeSpan(0, 0, 0, 0, 300),
-                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
-            };
-            System.Windows.Media.Animation.Storyboard.SetTarget(fadeIn, NotificationPanel);
-            System.Windows.Media.Animation.Storyboard.SetTargetProperty(fadeIn, new System.Windows.PropertyPath(OpacityProperty));
-            storyboard.Children.Add(fadeIn);
-            storyboard.Begin();
-
-            // Wait 5 seconds then fade out
-            await Task.Delay(5000);
-
-            var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
-            {
-                From = 1,
-                To = 0,
-                Duration = new System.TimeSpan(0, 0, 0, 0, 300),
-                EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn }
-            };
-            var storyboardOut = new System.Windows.Media.Animation.Storyboard();
-            System.Windows.Media.Animation.Storyboard.SetTarget(fadeOut, NotificationPanel);
-            System.Windows.Media.Animation.Storyboard.SetTargetProperty(fadeOut, new System.Windows.PropertyPath(OpacityProperty));
-            storyboardOut.Children.Add(fadeOut);
-            storyboardOut.Begin();
-        }
-
-        // ==================== Manejo de Tabs ====================
-
-        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Cargar duplicados cuando se selecciona el tab de Duplicados
-            if (MainTabControl.SelectedIndex == 2 && !string.IsNullOrEmpty(_currentFolderPath))
-            {
-                DuplicatesViewControl.LoadDuplicates(_currentFolderPath);
+                MessageBox.Show($"Error al mover archivos: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

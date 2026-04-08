@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,6 +16,8 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
         private ObservableCollection<SimilarityGroup> _similarityGroups = new();
         private SimilarityGroup? _selectedGroup;
         private bool _isProcessing;
+        private bool _hasNoDuplicates;
+        private bool _hasDuplicates;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -31,28 +34,74 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             }
         }
 
+        public bool HasNoDuplicates
+        {
+            get => _hasNoDuplicates;
+            set
+            {
+                if (_hasNoDuplicates == value) return;
+                _hasNoDuplicates = value;
+                OnPropertyChanged(nameof(HasNoDuplicates));
+            }
+        }
+
+        public bool HasDuplicates
+        {
+            get => _hasDuplicates;
+            set
+            {
+                if (_hasDuplicates == value) return;
+                _hasDuplicates = value;
+                OnPropertyChanged(nameof(HasDuplicates));
+            }
+        }
+
         public DuplicatesView()
         {
             InitializeComponent();
             DataContext = this;
             SimilarityGroupsListBox.ItemsSource = _similarityGroups;
+            HasNoDuplicates = false;
+            HasDuplicates = false;
         }
 
         public async void LoadDuplicates(string folderPath)
         {
             IsProcessing = true;
+            HasNoDuplicates = false;
+            HasDuplicates = false;
+
             try
             {
-                var groups = await DuplicateComparer.FindSimilarGroupsAsync(folderPath);
+                // Forzar que la notificación de carga se muestre al menos 2 segundos
+                var loadTask = DuplicateComparer.FindSimilarGroupsAsync(folderPath);
+                var delayTask = Task.Delay(2000);
+
+                await Task.WhenAll(loadTask, delayTask);
+                var groups = await loadTask;
+
                 _similarityGroups.Clear();
                 foreach (var group in groups)
                 {
                     _similarityGroups.Add(group);
                 }
+
+                // Mostrar el mensaje de "sin duplicados" si no hay grupos
+                if (_similarityGroups.Count == 0)
+                {
+                    HasNoDuplicates = true;
+                    HasDuplicates = false;
+                }
+                else
+                {
+                    HasNoDuplicates = false;
+                    HasDuplicates = true;
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al cargar duplicados: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                HasNoDuplicates = true;
             }
             finally
             {
