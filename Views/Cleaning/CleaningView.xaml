@@ -20,6 +20,7 @@
             <DockPanel>
                 <TextBlock Text="Limpieza Inteligente" FontSize="14" FontWeight="Bold" DockPanel.Dock="Left" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button x:Name="MoveUnsupportedButton" Content="Mover No Soportados" Click="MoveUnsupportedButton_Click" Padding="10" Background="#DC3545" Foreground="White" FontSize="12" Margin="0,0,8,0"/>
                     <Button x:Name="AnalyzeButton" Content="Analizar" Click="AnalyzeButton_Click" Padding="10" Background="#0078D4" Foreground="White" FontSize="12" Margin="0,0,8,0"/>
                     <Button x:Name="CleanSelectedButton" Content="Limpiar Seleccionados" Click="CleanSelectedButton_Click" Padding="10" Background="#28A745" Foreground="White" FontSize="12" IsEnabled="False"/>
                 </StackPanel>

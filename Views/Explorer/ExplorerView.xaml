@@ -39,24 +39,10 @@
                 </ListBox>
 
                 <!-- Indicador de archivos no soportados -->
-                <Border Grid.Row="2" Background="#FFF3CD" BorderBrush="#FFC107" BorderThickness="1" Padding="10" Margin="8,8,8,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                            <TextBlock Text="Archivos No Soportados" FontWeight="Bold" Foreground="#856404"/>
-                            <TextBlock x:Name="UnsupportedCountLabel" Text="0 archivos" Foreground="#856404" FontSize="12"/>
-                        </StackPanel>
-                        <Button Grid.Column="1" Content="Ver" Click="ShowUnsupportedFiles_Click" Padding="8,4" Margin="10,0,0,0" Background="#FFC107" Foreground="Black" FontSize="11"/>
-                    </Grid>
-                </Border>
+
 
                 <!-- Botones de acciones -->
                 <StackPanel Grid.Row="3" Orientation="Vertical" Margin="8">
-                    <!-- El usuario pidió ocultar el botón de Mover No Soportados por el momento -->
-                    <!-- <Button x:Name="MoveUnsupportedButton" Content="Mover No Soportados" Click="MoveUnsupportedFiles_Click" Padding="10" Background="#DC3545" Foreground="White" FontSize="12" IsEnabled="False" Margin="0,0,0,8"/> -->
                     <Button x:Name="DiscardButton" Content="Descartar" Click="DiscardSelectedFiles_Click" Padding="10" Background="#FF6B35" Foreground="White" FontSize="12" IsEnabled="False" Margin="0,0,0,8"/>
                 </StackPanel>
             </Grid>

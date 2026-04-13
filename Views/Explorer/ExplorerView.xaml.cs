@@ -16,7 +16,6 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
     {
         private string? _currentFolderPath;
         private ObservableCollection<string> _fileNames = new();
-        private List<string> _unsupportedFiles = new();
         private bool _isProcessing;
         private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff" };
         private static readonly string[] VideoExtensions = { ".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm" };
@@ -62,8 +61,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
                     VideoExtensions.Contains(Path.GetExtension(f).ToLower())
                 ).OrderBy(f => Path.GetFileName(f)).ToList();
 
-                // Detectar archivos no soportados (Módulo 1)
-                var unsupportedFiles = UnsupportedFileFinder.FindUnsupportedFiles(folderPath);
+
 
                 // Actualizar UI en el dispatcher thread
                 Dispatcher.Invoke(() =>
@@ -74,11 +72,9 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
                         _fileNames.Add(Path.GetFileName(file));
                     }
 
-                    _unsupportedFiles = unsupportedFiles;
-                    UpdateUnsupportedFilesUI();
                     ClearPreview();
 
-                    if (_fileNames.Count == 0 && _unsupportedFiles.Count == 0)
+                    if (_fileNames.Count == 0)
                     {
                         MessageBox.Show("No se encontraron archivos en esta carpeta.", "Carpeta vacía", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
@@ -182,12 +178,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             DiscardButton.IsEnabled = FileListBox.SelectedItems.Count > 0;
         }
 
-        private void UpdateUnsupportedFilesUI()
-        {
-            UnsupportedCountLabel.Text = $"{_unsupportedFiles.Count} archivos";
-            // MoveUnsupportedButton está oculto temporalmente
-            // MoveUnsupportedButton.IsEnabled = _unsupportedFiles.Count > 0;
-        }
+
 
         private void FileListBox_KeyDown(object sender, KeyEventArgs e)
         {
@@ -239,51 +230,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             }
         }
 
-        private void ShowUnsupportedFiles_Click(object sender, RoutedEventArgs e)
-        {
-            if (_unsupportedFiles.Count == 0)
-            {
-                MessageBox.Show("No hay archivos no soportados.", "Información", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
 
-            var fileList = string.Join("\n", _unsupportedFiles.Select(f => Path.GetFileName(f)));
-            var window = new Window
-            {
-                Title = "Archivos No Soportados",
-                Width = 500,
-                Height = 400,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = Window.GetWindow(this)
-            };
 
-            var textBox = new TextBox
-            {
-                Text = fileList,
-                IsReadOnly = true,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(10)
-            };
-
-            window.Content = textBox;
-            window.ShowDialog();
-        }
-
-        private async void MoveUnsupportedFiles_Click(object sender, RoutedEventArgs e)
-        {
-            if (_unsupportedFiles.Count == 0) return;
-
-            try
-            {
-                await Task.Run(() => FileManager.MoveFilesToAuxiliar(_unsupportedFiles, _currentFolderPath!, "No_Soportados"));
-                _unsupportedFiles.Clear();
-                UpdateUnsupportedFilesUI();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al mover archivos: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
     }
 }

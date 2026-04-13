@@ -24,7 +24,10 @@
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
-                    <TextBlock Text="Grupos de Similitud" FontSize="14" FontWeight="Bold"/>
+                    <DockPanel>
+                        <TextBlock Text="Grupos de Similitud" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button x:Name="AnalyzeButton" Content="Analizar" Click="AnalyzeButton_Click" HorizontalAlignment="Right" Padding="10,4" Background="#0078D4" Foreground="White" FontSize="12" DockPanel.Dock="Right"/>
+                    </DockPanel>
                 </Border>
 
                 <ListBox Grid.Row="1" x:Name="SimilarityGroupsListBox" SelectionChanged="SimilarityGroupsListBox_SelectionChanged" Padding="8">

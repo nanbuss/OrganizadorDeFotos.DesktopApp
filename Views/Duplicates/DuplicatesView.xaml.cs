@@ -23,7 +23,14 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public string CurrentFolderPath { get; set; }
+        public string CurrentFolderPath { get; set; } = string.Empty;
+
+        public void ClearResults()
+        {
+            _similarityGroups.Clear();
+            HasNoDuplicates = false;
+            HasDuplicates = false;
+        }
 
         public bool IsProcessing
         {
@@ -69,7 +76,20 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             _similarityThreshold = 0.90;
         }
 
-        public async void LoadDuplicates(string folderPath)
+        private async void AnalyzeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(CurrentFolderPath) || !System.IO.Directory.Exists(CurrentFolderPath))
+            {
+                MessageBox.Show("Selecciona una carpeta válida antes de analizar.", "Atención", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            AnalyzeButton.IsEnabled = false;
+            await LoadDuplicates(CurrentFolderPath);
+            AnalyzeButton.IsEnabled = true;
+        }
+
+        public async Task LoadDuplicates(string folderPath)
         {
             IsProcessing = true;
             HasNoDuplicates = false;
@@ -177,7 +197,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             }
         }
 
-        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        private async void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new SettingsDialog(_timeThreshold, _similarityThreshold)
             {
@@ -191,7 +211,9 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
 
                 if (!string.IsNullOrEmpty(CurrentFolderPath))
                 {
-                    LoadDuplicates(CurrentFolderPath);
+                    AnalyzeButton.IsEnabled = false;
+                    await LoadDuplicates(CurrentFolderPath);
+                    AnalyzeButton.IsEnabled = true;
                 }
             }
         }

@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Organizador de Fotos",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            // Program is the path to the executable to be debugged.
+            "program": "${workspaceFolder}/bin/Debug/net10.0-windows10.0.19041.0/OrganizadorDeFotos.DesktopApp.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+        {
+            "name": ".NET Core Attach",
+            "type": "coreclr",
+            "request": "attach"
+        }
+    ]
+}

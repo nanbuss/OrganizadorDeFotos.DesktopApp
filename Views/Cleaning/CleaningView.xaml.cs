@@ -37,6 +37,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Cleaning
             InitializeComponent();
             DataContext = this;
             CandidatesItemsControl.ItemsSource = _trashCandidates;
+            UpdateUnsupportedFilesInfo();
         }
 
         public void SetFolder(string folderPath)
@@ -44,6 +45,21 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Cleaning
             CurrentFolderPath = folderPath;
             _trashCandidates.Clear();
             CleanSelectedButton.IsEnabled = false;
+            UpdateUnsupportedFilesInfo();
+        }
+
+        private void UpdateUnsupportedFilesInfo()
+        {
+            if (string.IsNullOrEmpty(CurrentFolderPath) || !Directory.Exists(CurrentFolderPath))
+            {
+                MoveUnsupportedButton.Content = "Mover No Soportados (0)";
+                MoveUnsupportedButton.IsEnabled = false;
+                return;
+            }
+
+            int count = UnsupportedFileFinder.CountUnsupportedFiles(CurrentFolderPath);
+            MoveUnsupportedButton.Content = $"Mover No Soportados ({count})";
+            MoveUnsupportedButton.IsEnabled = count > 0;
         }
 
         private async void AnalyzeButton_Click(object sender, RoutedEventArgs e)
@@ -113,6 +129,43 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Cleaning
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al limpiar las fotos seleccionadas: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void MoveUnsupportedButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(CurrentFolderPath) || !Directory.Exists(CurrentFolderPath))
+            {
+                MessageBox.Show("Selecciona una carpeta válida primero.", "Atención", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            LoadingOverlay.Visibility = Visibility.Visible;
+            MoveUnsupportedButton.IsEnabled = false;
+            try
+            {
+                var unsupportedFiles = await Task.Run(() => UnsupportedFileFinder.FindUnsupportedFiles(CurrentFolderPath));
+
+                if (unsupportedFiles.Count == 0)
+                {
+                    MessageBox.Show("No se encontraron archivos no soportados en esta carpeta.", "Información", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                int count = unsupportedFiles.Count;
+                await Task.Run(() => FileManager.MoveFilesToAuxiliar(unsupportedFiles, CurrentFolderPath, "No_Soportados"));
+
+                UpdateUnsupportedFilesInfo();
+                MessageBox.Show($"✓ Se movieron {count} archivos no soportados a la carpeta auxiliar (_AUXILIAR/No_Soportados).", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al mover archivos no soportados: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+                UpdateUnsupportedFilesInfo();
             }
         }
 

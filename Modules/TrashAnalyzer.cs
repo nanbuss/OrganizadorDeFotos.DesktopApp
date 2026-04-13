@@ -208,16 +208,51 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
 
                 var result = await _ocrEngine.RecognizeAsync(softwareBitmap);
 
-                if (result.Lines.Count > 15) return true; // Gran cantidad de renglones implica texto
+                if (result.Lines.Count == 0) return false;
 
+                // 1. Alta cantidad de texto plano (incluso recortado)
+                if (result.Lines.Count >= 12) return true;
+
+                // 2. Palabras clave específicas (Finanzas, Redes Sociales, Publicidad)
                 string fullText = result.Text.ToLowerInvariant();
                 string[] keywords = {
-                    "transferencia", "comprobante", "cbu", "cvu", "alias",
-                    "importe", "saldo", "pago exitoso", "mercado pago",
-                    "banco", "factura", "ticket", "aprobado", "santander", "galicia", "bbva"
+                    // Finanzas
+                    "transferencia", "comprobante", "cbu", "cvu", "alias","cuenta",
+                    "importe", "saldo", "pago exitoso", "mercado pago", "mercadopago",
+                    "banco", "factura", "ticket", "aprobado", "santander", "galicia", "bbva",
+                    // Redes / Chat
+                    "whatsapp", "instagram", "responder", "reenviado", "escribe un mensaje",
+                    "mensaje", "comentar", "compartir", "me gusta", "seguidores",
+                    // Publicidad / E-mails
+                    "promoción", "oferta", "descuento", "envío gratis", "compra ahora",
+                    "suscripción", "cancelar", "ver online", "click aquí", ".com", "thanks",
+                    "gracias", "pedidos"
                 };
 
-                return keywords.Any(k => fullText.Contains(k));
+                if (keywords.Any(k => fullText.Contains(k))) return true;
+
+                // 3. Sensibilidad Espacial (Densidad de Texto)
+                // Esto es clave: calcula el área geométrica que ocupan las letras detectadas
+                // respecto al lienzo total. Un meme, chat o recorte de email usualmente 
+                // tiene una altísima densidad de letras en relación al espacio.
+                double totalTextArea = 0;
+                foreach (var line in result.Lines)
+                {
+                    foreach (var word in line.Words)
+                    {
+                        totalTextArea += (word.BoundingRect.Width * word.BoundingRect.Height);
+                    }
+                }
+
+                double imageArea = softwareBitmap.PixelWidth * softwareBitmap.PixelHeight;
+                double textDensity = totalTextArea / imageArea;
+
+                // Si más del 3.5% de los PÍXELES de toda la imagen están compuestos por letras perfectas
+                // reconocidas por la IA nativa del sistema, es casi seguro un texto, captura o meme.
+                // Una foto normal de personas o paisajes rara vez alcanza más del 0.5% de "área" de texto confuso.
+                if (textDensity > 0.035) return true;
+
+                return false;
             }
             catch
             {

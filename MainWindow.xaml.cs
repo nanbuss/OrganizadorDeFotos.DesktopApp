@@ -38,9 +38,9 @@ namespace OrganizadorDeFotos.DesktopApp
                 // Cargar vista Explorador
                 ExplorerViewControl.LoadFolder(_currentFolderPath);
 
-                // Cargar grupos de duplicados (Módulo 3)
+                // Cargar vista Duplicados (Módulo 3)
                 DuplicatesViewControl.CurrentFolderPath = _currentFolderPath;
-                DuplicatesViewControl.LoadDuplicates(_currentFolderPath);
+                DuplicatesViewControl.ClearResults();
 
                 // Cargar carpeta en limpieza inteligente
                 CleaningViewControl.CurrentFolderPath = _currentFolderPath;
@@ -107,11 +107,7 @@ namespace OrganizadorDeFotos.DesktopApp
                 ExplorerViewControl.RefreshFolder();
             }
 
-            // Cargar duplicados cuando se selecciona el tab de Duplicados
-            if (MainTabControl.SelectedIndex == 2 && !string.IsNullOrEmpty(_currentFolderPath))
-            {
-                DuplicatesViewControl.LoadDuplicates(_currentFolderPath);
-            }
+
         }
     }
 }
