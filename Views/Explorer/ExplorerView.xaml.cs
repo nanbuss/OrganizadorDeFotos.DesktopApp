@@ -185,7 +185,8 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
         private void UpdateUnsupportedFilesUI()
         {
             UnsupportedCountLabel.Text = $"{_unsupportedFiles.Count} archivos";
-            MoveUnsupportedButton.IsEnabled = _unsupportedFiles.Count > 0;
+            // MoveUnsupportedButton está oculto temporalmente
+            // MoveUnsupportedButton.IsEnabled = _unsupportedFiles.Count > 0;
         }
 
         private void FileListBox_KeyDown(object sender, KeyEventArgs e)
