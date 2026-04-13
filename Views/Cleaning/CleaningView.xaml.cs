@@ -3,12 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+
 using OrganizadorDeFotos.DesktopApp.Modules;
 
 namespace OrganizadorDeFotos.DesktopApp.Views.Cleaning
@@ -57,10 +54,11 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Cleaning
                 return;
             }
 
-            IsAnalyzing = true;
+            LoadingOverlay.Visibility = Visibility.Visible;
+            AnalyzeButton.IsEnabled = false;
             try
             {
-                var candidates = await Task.Run(() => FindTrashCandidates(CurrentFolderPath));
+                var candidates = await Task.Run(() => TrashAnalyzer.FindTrashCandidatesAsync(CurrentFolderPath));
 
                 _trashCandidates.Clear();
                 foreach (var candidate in candidates)
@@ -81,166 +79,12 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Cleaning
             }
             finally
             {
-                IsAnalyzing = false;
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+                AnalyzeButton.IsEnabled = true;
             }
         }
 
-        private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff" };
 
-            private IEnumerable<TrashCandidate> FindTrashCandidates(string folderPath)
-        {
-            var imageFiles = Directory.GetFiles(folderPath)
-                .Where(f => ImageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .ToList();
-
-            foreach (var filePath in imageFiles)
-            {
-                ImageItem item;
-                try
-                {
-                    item = ImageItem.FromFile(filePath);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                var candidate = AnalyzeItem(item);
-                if (candidate != null)
-                {
-                    yield return candidate;
-                }
-            }
-        }
-
-        private TrashCandidate? AnalyzeItem(ImageItem item)
-        {
-            string fileName = item.FileName.ToLowerInvariant();
-            if (fileName.Contains("screenshot") || fileName.Contains("captura"))
-            {
-                return new TrashCandidate(item)
-                {
-                    Reason = "Captura",
-                    Confidence = 0.95
-                };
-            }
-
-            if (IsStandardMobileAspectRatio(item.Width, item.Height))
-            {
-                return new TrashCandidate(item)
-                {
-                    Reason = "Captura",
-                    Confidence = 0.85
-                };
-            }
-
-            var histogram = AnalyzeBrightness(item.FilePath);
-            if (histogram.IsDark)
-            {
-                return new TrashCandidate(item)
-                {
-                    Reason = "Foto muy oscura",
-                    Confidence = histogram.Confidence
-                };
-            }
-
-            if (histogram.IsBright)
-            {
-                return new TrashCandidate(item)
-                {
-                    Reason = "Foto muy clara",
-                    Confidence = histogram.Confidence
-                };
-            }
-
-            return null;
-        }
-
-        private (bool IsDark, bool IsBright, double Confidence) AnalyzeBrightness(string filePath)
-        {
-            using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(filePath);
-            int width = image.Width;
-            int height = image.Height;
-            int sampleX = Math.Max(1, width / 120);
-            int sampleY = Math.Max(1, height / 120);
-
-            int blackCount = 0;
-            int whiteCount = 0;
-            int totalCount = 0;
-            double brightnessSum = 0;
-
-            for (int y = 0; y < height; y += sampleY)
-            {
-                for (int x = 0; x < width; x += sampleX)
-                {
-                    var pixel = image[x, y];
-                    double luminance = (0.2126 * pixel.R + 0.7152 * pixel.G + 0.0722 * pixel.B) / 255.0;
-                    brightnessSum += luminance;
-                    totalCount++;
-
-                    if (luminance <= 0.05)
-                    {
-                        blackCount++;
-                    }
-                    else if (luminance >= 0.95)
-                    {
-                        whiteCount++;
-                    }
-                }
-            }
-
-            if (totalCount == 0)
-            {
-                return (false, false, 0.0);
-            }
-
-            double blackRatio = blackCount / (double)totalCount;
-            double whiteRatio = whiteCount / (double)totalCount;
-            double average = brightnessSum / totalCount;
-
-            if (blackRatio > 0.92)
-            {
-                return (true, false, Math.Min(1.0, 0.7 + blackRatio * 0.3));
-            }
-
-            if (whiteRatio > 0.92)
-            {
-                return (false, true, Math.Min(1.0, 0.7 + whiteRatio * 0.3));
-            }
-
-            return (false, false, average);
-        }
-
-        private static bool IsStandardMobileAspectRatio(int width, int height)
-        {
-            if (width == 0 || height == 0) return false;
-
-            var standardRatios = new (int width, int height)[]
-            {
-                (1920, 1080),
-                (1080, 1920),
-                (2340, 1080),
-                (1080, 2340),
-                (2400, 1080),
-                (1080, 2400),
-                (1170, 2532),
-                (1080, 2400),
-                (1125, 2436),
-                (720, 1280),
-                (1080, 2280),
-                (1440, 3040)
-            };
-
-            foreach (var ratio in standardRatios)
-            {
-                if ((long)width * ratio.height == (long)height * ratio.width)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
 
         private async void CleanSelectedButton_Click(object sender, RoutedEventArgs e)
         {

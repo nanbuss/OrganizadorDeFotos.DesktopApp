@@ -54,7 +54,7 @@
         </ScrollViewer>
 
         <!-- Overlay de carga -->
-        <Border Grid.Row="0" Grid.RowSpan="3" Background="#88000000" Visibility="{Binding IsAnalyzing, Converter={StaticResource BoolToVisibilityConverter}}" Panel.ZIndex="999">
+        <Border x:Name="LoadingOverlay" Grid.Row="0" Grid.RowSpan="3" Background="#88000000" Visibility="Collapsed" Panel.ZIndex="999">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <ProgressBar IsIndeterminate="True" Width="280" Height="18" Margin="0,0,0,12" Foreground="#0078D4"/>
                 <TextBlock Text="Analizando fotos para limpieza inteligente..." Foreground="White" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"/>
