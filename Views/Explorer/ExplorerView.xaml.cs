@@ -15,8 +15,9 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
     public partial class ExplorerView : UserControl, INotifyPropertyChanged
     {
         private string? _currentFolderPath;
-        private ObservableCollection<string> _fileNames = new();
+        private ObservableCollection<ImageItem> _files = new();
         private bool _isProcessing;
+
         private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff" };
         private static readonly string[] VideoExtensions = { ".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm" };
 
@@ -33,16 +34,18 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             }
         }
 
+
         public ExplorerView()
         {
             InitializeComponent();
             DataContext = this;
-            FileListBox.ItemsSource = _fileNames;
+            FileListBox.ItemsSource = _files;
             NoFileMessage.Visibility = Visibility.Visible;
             ImagePreview.Visibility = Visibility.Collapsed;
             VideoPreview.Visibility = Visibility.Collapsed;
             UpdateDiscardButton();
         }
+
 
         protected void OnPropertyChanged(string propertyName)
         {
@@ -66,15 +69,18 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
                 // Actualizar UI en el dispatcher thread
                 Dispatcher.Invoke(() =>
                 {
-                    _fileNames.Clear();
+                    _files.Clear();
+
                     foreach (var file in mediaFiles)
                     {
-                        _fileNames.Add(Path.GetFileName(file));
+                        var item = ImageItem.FromFile(file, loadMetadata: false);
+                        item.IsSelected = false;
+                        _files.Add(item);
                     }
 
                     ClearPreview();
 
-                    if (_fileNames.Count == 0)
+                    if (_files.Count == 0)
                     {
                         MessageBox.Show("No se encontraron archivos en esta carpeta.", "Carpeta vacía", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
@@ -106,7 +112,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
         {
             UpdateDiscardButton();
 
-            if (FileListBox.SelectedItem is not string fileName)
+            if (FileListBox.SelectedItem is not ImageItem item)
             {
                 ClearPreview();
                 return;
@@ -114,7 +120,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
 
             try
             {
-                string filePath = Path.Combine(_currentFolderPath ?? "", fileName);
+                string filePath = item.FilePath;
                 string extension = Path.GetExtension(filePath).ToLower();
 
                 if (ImageExtensions.Contains(extension))
@@ -178,8 +184,6 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             DiscardButton.IsEnabled = FileListBox.SelectedItems.Count > 0;
         }
 
-
-
         private void FileListBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Delete)
@@ -195,30 +199,30 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
 
         private async void DiscardSelectedFiles()
         {
-            if (FileListBox.SelectedItems.Count == 0) return;
+            var selectedItems = FileListBox.SelectedItems.Cast<ImageItem>().ToList();
 
-            var selectedFiles = FileListBox.SelectedItems.Cast<string>().ToList();
+            if (selectedItems.Count == 0) return;
 
             try
             {
                 ClearPreview();
 
                 await Task.Run(() => FileManager.MoveFilesToAuxiliar(
-                    selectedFiles.Select(f => Path.Combine(_currentFolderPath!, f)).ToList(),
+                    selectedItems.Select(f => f.FilePath).ToList(),
                     _currentFolderPath!,
                     "Descartes_Manuales"));
 
                 // Remove from ObservableCollection on UI thread
                 Dispatcher.Invoke(() =>
                 {
-                    foreach (var file in selectedFiles)
+                    foreach (var item in selectedItems)
                     {
-                        _fileNames.Remove(file);
+                        _files.Remove(item);
                     }
 
-                    if (_fileNames.Count > 0)
+                    if (_files.Count > 0)
                     {
-                        FileListBox.SelectedIndex = Math.Min(FileListBox.SelectedIndex, _fileNames.Count - 1);
+                        FileListBox.SelectedIndex = Math.Min(FileListBox.SelectedIndex, _files.Count - 1);
                     }
 
                     UpdateDiscardButton();
@@ -231,6 +235,38 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
         }
 
 
+        private async void RenameAll_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_currentFolderPath) || _files.Count == 0)
+            {
+                MessageBox.Show("No hay archivos para renombrar.", "Información", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            var result = MessageBox.Show("¿Estás seguro de que quieres renombrar todos los archivos de esta carpeta basándote en su fecha de captura?", 
+                "Confirmar Renombrado Masivo", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            
+            if (result != MessageBoxResult.Yes) return;
+
+            IsProcessing = true;
+            try
+            {
+                // Copiar la lista actual para evitar problemas de modificación durante el proceso
+                var filesToRename = _files.Select(f => f.FilePath).ToList();
+                
+                await Task.Run(() => FileRenamer.RenameFilesWithCollisionHandling(filesToRename));
+
+                // Refrescar la vista
+                LoadFolder(_currentFolderPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al renombrar archivos: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
+            }
+        }
     }
 }

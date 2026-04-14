@@ -3,6 +3,8 @@ using SixLabors.ImageSharp;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
 using Windows.Storage;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OrganizadorDeFotos.DesktopApp.Modules
 {
@@ -11,6 +13,7 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
         private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tiff" };
 
         private static readonly OcrEngine? _ocrEngine = OcrEngine.TryCreateFromUserProfileLanguages();
+        private static readonly SemaphoreSlim _ocrSemaphore = new SemaphoreSlim(1, 1);
 
         public static async Task<List<TrashCandidate>> FindTrashCandidatesAsync(string folderPath)
         {
@@ -204,16 +207,28 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
                 var file = await StorageFile.GetFileFromPathAsync(Path.GetFullPath(filePath));
                 using var stream = await file.OpenAsync(FileAccessMode.Read);
                 var decoder = await BitmapDecoder.CreateAsync(stream);
-                var softwareBitmap = await decoder.GetSoftwareBitmapAsync();
+                using var softwareBitmap = await decoder.GetSoftwareBitmapAsync();
 
-                var result = await _ocrEngine.RecognizeAsync(softwareBitmap);
+                OcrResult result;
+                await _ocrSemaphore.WaitAsync();
+                try
+                {
+                    result = await _ocrEngine.RecognizeAsync(softwareBitmap);
+                }
+                finally
+                {
+                    _ocrSemaphore.Release();
+                }
 
-                if (result.Lines.Count == 0) return false;
+                if (result == null || result.Lines.Count == 0) return false;
 
-                // 1. Alta cantidad de texto plano (incluso recortado)
+                // 1. Sensibilidad aumentada: más de 10 letras o dígitos
+                if (result.Text.Count(c => char.IsLetterOrDigit(c)) > 10) return true;
+
+                // 2. Alta cantidad de texto plano (incluso recortado)
                 if (result.Lines.Count >= 12) return true;
 
-                // 2. Palabras clave específicas (Finanzas, Redes Sociales, Publicidad)
+                // 3. Palabras clave específicas (Finanzas, Redes Sociales, Publicidad)
                 string fullText = result.Text.ToLowerInvariant();
                 string[] keywords = {
                     // Finanzas
@@ -231,7 +246,7 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
 
                 if (keywords.Any(k => fullText.Contains(k))) return true;
 
-                // 3. Sensibilidad Espacial (Densidad de Texto)
+                // 4. Sensibilidad Espacial (Densidad de Texto)
                 // Esto es clave: calcula el área geométrica que ocupan las letras detectadas
                 // respecto al lienzo total. Un meme, chat o recorte de email usualmente 
                 // tiene una altísima densidad de letras en relación al espacio.

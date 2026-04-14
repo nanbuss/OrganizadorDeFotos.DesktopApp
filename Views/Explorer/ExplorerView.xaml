@@ -3,84 +3,93 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             mc:Ignorable="d"
+             xmlns:local="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Explorer"
+             mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
+    
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
     </UserControl.Resources>
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="280"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Panel izquierdo: Lista de archivos + Herramientas -->
-        <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="0,0,15,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <!-- Encabezado Archivos -->
-                <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
-                    <TextBlock Text="Archivos Soportados" FontSize="14" FontWeight="Bold"/>
-                </Border>
-
-                <!-- ListBox de archivos -->
-                <ListBox Grid.Row="1" x:Name="FileListBox" SelectionChanged="FileListBox_SelectionChanged" SelectionMode="Extended" KeyDown="FileListBox_KeyDown" Padding="8" ItemsSource="{Binding FileNames}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip="{Binding}"/>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-
-                <!-- Indicador de archivos no soportados -->
-
-
-                <!-- Botones de acciones -->
-                <StackPanel Grid.Row="3" Orientation="Vertical" Margin="8">
-                    <Button x:Name="DiscardButton" Content="Descartar" Click="DiscardSelectedFiles_Click" Padding="10" Background="#FF6B35" Foreground="White" FontSize="12" IsEnabled="False" Margin="0,0,0,8"/>
+        <!-- Barra superior -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+            <DockPanel>
+                <TextBlock Text="Explorador de Archivos" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                    <Button x:Name="RenameAllButton" Content="🔄 Renombrar Todo" Click="RenameAll_Click" Padding="10,6" Background="#0078D4" Foreground="White" FontSize="12" Margin="0,0,8,0"/>
+                    <Button x:Name="DiscardButton" Content="🗑️ Descartar Seleccionados" Click="DiscardSelectedFiles_Click" Padding="10,6" Background="#FF6B35" Foreground="White" FontSize="12" IsEnabled="False" Margin="0,0,8,0"/>
                 </StackPanel>
-            </Grid>
+            </DockPanel>
         </Border>
 
-        <!-- Panel derecho: Vista Previa -->
-        <Border Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4">
-            <Grid Background="#FAFAFA">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+        <!-- VISTA DE LISTA (Default) -->
+        <Grid Grid.Row="1" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
-                    <TextBlock Text="Vista Previa" FontSize="14" FontWeight="Bold"/>
-                </Border>
+            <!-- Panel izquierdo: Lista de archivos -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="0,12,12,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <Grid Grid.Row="1" Background="#FAFAFA">
-                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <!-- Imagen -->
-                        <Image x:Name="ImagePreview" Stretch="Uniform" MaxWidth="600" MaxHeight="450" Margin="15"/>
+                    <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+                        <TextBlock Text="Archivos Soportados" FontSize="14" FontWeight="Bold"/>
+                    </Border>
 
-                        <!-- Video -->
-                        <MediaElement x:Name="VideoPreview" Stretch="Uniform" MaxWidth="600" MaxHeight="450" Margin="15" LoadedBehavior="Manual"/>
+                    <ListBox Grid.Row="1" x:Name="FileListBox" SelectionChanged="FileListBox_SelectionChanged" SelectionMode="Extended" KeyDown="FileListBox_KeyDown" Padding="8">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
 
-                        <!-- Mensaje cuando no hay archivo seleccionado -->
-                        <TextBlock x:Name="NoFileMessage" Text="Selecciona un archivo para ver su vista previa"/>
+            <!-- Panel derecho: Vista Previa -->
+            <Border Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="0,12,0,0">
+                <Grid Background="#FAFAFA">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+                        <TextBlock Text="Vista Previa" FontSize="14" FontWeight="Bold"/>
+                    </Border>
+
+                    <Grid Grid.Row="1" Background="#FAFAFA">
+                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Image x:Name="ImagePreview" Stretch="Uniform" MaxWidth="600" MaxHeight="450" Margin="15"/>
+                            <MediaElement x:Name="VideoPreview" Stretch="Uniform" MaxWidth="600" MaxHeight="450" Margin="15" LoadedBehavior="Manual"/>
+                            <TextBlock x:Name="NoFileMessage" Text="Selecciona un archivo para ver su vista previa"/>
+                        </Grid>
                     </Grid>
                 </Grid>
+            </Border>
+        </Grid>
 
-                <!-- Overlay de carga -->
-                <Border Background="#88000000" Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}" Grid.RowSpan="2">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <ProgressBar IsIndeterminate="True" Width="280" Height="18" Margin="0,0,0,12"/>
-                        <TextBlock Text="Refrescando lista de archivos..." Foreground="White" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
+        <!-- Overlay de carga (Común) -->
+        <Border Background="#88000000" Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}" Grid.RowSpan="2" Grid.ColumnSpan="2" Panel.ZIndex="100">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="280" Height="18" Margin="0,0,0,12"/>
+                <TextBlock Text="Procesando archivos..." Foreground="White" FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"/>
+            </StackPanel>
         </Border>
     </Grid>
 </UserControl>

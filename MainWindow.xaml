@@ -4,6 +4,8 @@
         xmlns:views="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Duplicates"
         xmlns:cleaning="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Cleaning"
         xmlns:explorer="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Explorer"
+        xmlns:organization="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Organization"
+        xmlns:preview="clr-namespace:OrganizadorDeFotos.DesktopApp.Views.Preview"
         Title="Organizador de Fotos" Height="700" Width="1200" Background="#F5F5F5">
     <Grid>
         <Grid.RowDefinitions>
@@ -31,7 +33,12 @@
                         <explorer:ExplorerView x:Name="ExplorerViewControl" />
                     </TabItem>
 
-                    <!-- Tab 2: Limpieza Inteligente -->
+                    <!-- Tab 2: Vista Preliminar -->
+                    <TabItem Header="Vista Preliminar" Background="White">
+                        <preview:PreviewView x:Name="PreviewViewControl" />
+                    </TabItem>
+
+                    <!-- Tab 3: Limpieza Inteligente -->
                     <TabItem Header="Limpieza" Background="White">
                         <cleaning:CleaningView x:Name="CleaningViewControl" />
                     </TabItem>
@@ -41,11 +48,9 @@
                         <views:DuplicatesView x:Name="DuplicatesViewControl" />
                     </TabItem>
 
-                    <!-- Tab 4: Organizador (para módulos posteriores) -->
-                    <TabItem Header="Organizador" Background="White">
-                        <Grid Background="#FAFAFA">
-                            <TextBlock Text="Módulo de Organización - Próximamente" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#999999" FontSize="14"/>
-                        </Grid>
+                    <!-- Tab 4: Organización -->
+                    <TabItem Header="Organización" Background="White">
+                        <organization:OrganizationView x:Name="OrganizationViewControl" />
                     </TabItem>
                 </TabControl>
             </Border>

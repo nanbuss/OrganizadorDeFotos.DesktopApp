@@ -38,6 +38,9 @@ namespace OrganizadorDeFotos.DesktopApp
                 // Cargar vista Explorador
                 ExplorerViewControl.LoadFolder(_currentFolderPath);
 
+                // Cargar vista preliminar
+                PreviewViewControl.LoadFolder(_currentFolderPath);
+
                 // Cargar vista Duplicados (Módulo 3)
                 DuplicatesViewControl.CurrentFolderPath = _currentFolderPath;
                 DuplicatesViewControl.ClearResults();
@@ -45,6 +48,9 @@ namespace OrganizadorDeFotos.DesktopApp
                 // Cargar carpeta en limpieza inteligente
                 CleaningViewControl.CurrentFolderPath = _currentFolderPath;
                 CleaningViewControl.SetFolder(_currentFolderPath);
+
+                // Cargar carpeta en organización estructural
+                OrganizationViewControl.SetFolder(_currentFolderPath);
             }
             catch (Exception ex)
             {
