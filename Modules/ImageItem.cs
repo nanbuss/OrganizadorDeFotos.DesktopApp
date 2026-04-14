@@ -19,6 +19,7 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
         public int Width { get; set; }
         public int Height { get; set; }
         public bool IsSelected { get; set; } = true; // Por defecto seleccionado para conservar
+        public string RelativePath { get; set; } = string.Empty;
 
         public string SizeKB => $"{FileSize / 1024} KB";
         public string Dimensions => $"{Width}x{Height}";

@@ -28,15 +28,15 @@ namespace OrganizadorDeFotos.DesktopApp
             }
         }
 
-        private void LoadFolder(string folderPath)
+        private async void LoadFolder(string folderPath)
         {
             try
             {
                 _currentFolderPath = folderPath;
                 FolderPathTextBlock.Text = folderPath;
 
-                // Cargar vista Explorador
-                ExplorerViewControl.LoadFolder(_currentFolderPath);
+                // Cargar vista Explorador (Asíncrono)
+                await ExplorerViewControl.LoadFolder(_currentFolderPath);
 
                 // Cargar vista preliminar
                 PreviewViewControl.LoadFolder(_currentFolderPath);

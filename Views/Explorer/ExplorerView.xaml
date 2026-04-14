@@ -54,7 +54,20 @@
                     <ListBox Grid.Row="1" x:Name="FileListBox" SelectionChanged="FileListBox_SelectionChanged" SelectionMode="Extended" KeyDown="FileListBox_KeyDown" Padding="8">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}"/>
+                                <StackPanel Margin="0,2" ToolTip="{Binding FilePath}">
+                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding RelativePath}" FontSize="10" Foreground="#888" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RelativePath}" Value="Raíz">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

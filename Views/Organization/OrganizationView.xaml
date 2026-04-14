@@ -40,16 +40,24 @@
                         <Button x:Name="AddFolderButton" Content="📁+" ToolTip="Nueva Carpeta" Click="AddFolder_Click" Margin="5" Padding="5,2" Background="#EEEEEE"/>
                         <Button x:Name="RenameFolderButton" Content="✏️" ToolTip="Renombrar" Click="RenameFolder_Click" Margin="0,5,5,5" Padding="5,2" Background="#EEEEEE"/>
                         <Button x:Name="DeleteFolderButton" Content="🗑️" ToolTip="Eliminar" Click="DeleteFolder_Click" Margin="0,5,5,5" Padding="5,2" Background="#EEEEEE"/>
+                        <Button x:Name="AutoOrganizeButton" Content="🪄 Auto-Organizar" ToolTip="Auto-Organizar por Fecha" Click="AutoOrganize_Click" Margin="0,5,5,5" Padding="5,2" Background="#EEEEEE"/>
                     </StackPanel>
 
                     <TreeView Grid.Row="1" x:Name="FolderTreeView" BorderThickness="0" 
-                              SelectedItemChanged="FolderTreeView_SelectedItemChanged">
+                              SelectedItemChanged="FolderTreeView_SelectedItemChanged"
+                              AllowDrop="True"
+                              DragEnter="FolderTreeView_DragEnter"
+                              DragOver="FolderTreeView_DragOver"
+                              DragLeave="FolderTreeView_DragLeave"
+                              Drop="FolderTreeView_Drop"
+                              PreviewMouseLeftButtonDown="FolderTreeView_PreviewMouseLeftButtonDown"
+                              MouseMove="FolderTreeView_MouseMove">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding SubFolders}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="📁" Margin="0,0,5,0" Foreground="#FFC107"/>
                                     <TextBlock Text="{Binding Name}"/>
-                                    <TextBlock Text="{Binding Files.Count, StringFormat=' ({0})'}" Foreground="#888" FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding TotalCount, StringFormat=' ({0})'}" Foreground="#888" FontSize="11" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </HierarchicalDataTemplate>
                         </TreeView.ItemTemplate>
@@ -75,7 +83,9 @@
                 </Border>
 
                 <ListBox Grid.Row="1" x:Name="FilesListBox" SelectionMode="Extended" BorderThickness="0" Background="Transparent" Padding="10" 
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         PreviewMouseLeftButtonDown="FilesListBox_PreviewMouseLeftButtonDown"
+                         MouseMove="FilesListBox_MouseMove">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
@@ -96,7 +106,10 @@
                 <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="10">
                     <Grid>
                         <TextBlock x:Name="SelectionInfoLabel" Text="0 fotos seleccionadas" VerticalAlignment="Center"/>
-                        <Button x:Name="AssignToFolderButton" Content="Mover a carpeta seleccionada" HorizontalAlignment="Right" IsEnabled="False" Click="AssignToFolder_Click" Padding="10,5"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="AssignToFolderButton" Content="Mover fotos seleccionadas..." Click="AssignToFolder_Click" Padding="10,5" Margin="0,0,10,0"/>
+                            <Button x:Name="FinalizeButton" Content="🚀 Finalizar y Mover Archivos" Click="Finalize_Click" Padding="15,5" Background="#2E7D32" Foreground="White" FontWeight="Bold"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>

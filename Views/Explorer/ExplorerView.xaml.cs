@@ -52,19 +52,24 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        public void LoadFolder(string folderPath)
+        public async Task LoadFolder(string folderPath)
         {
+            if (string.IsNullOrEmpty(folderPath)) return;
+            
+            _currentFolderPath = folderPath;
+            IsProcessing = true;
+
             try
             {
-                _currentFolderPath = folderPath;
-                
-                var files = Directory.GetFiles(folderPath);
-                var mediaFiles = files.Where(f =>
-                    ImageExtensions.Contains(Path.GetExtension(f).ToLower()) ||
-                    VideoExtensions.Contains(Path.GetExtension(f).ToLower())
-                ).OrderBy(f => Path.GetFileName(f)).ToList();
+                // Unificar extensiones para la búsqueda
+                var allExtensions = ImageExtensions.Concat(VideoExtensions).ToArray();
 
-
+                // Ejecutar búsqueda en segundo plano
+                var mediaFiles = await Task.Run(() => 
+                    FileManager.GetMediaFilesRecursively(folderPath, allExtensions)
+                        .OrderBy(f => Path.GetFileName(f))
+                        .ToList()
+                );
 
                 // Actualizar UI en el dispatcher thread
                 Dispatcher.Invoke(() =>
@@ -74,6 +79,13 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
                     foreach (var file in mediaFiles)
                     {
                         var item = ImageItem.FromFile(file, loadMetadata: false);
+                        
+                        // Calcular ruta relativa para mostrar en la interfaz
+                        try {
+                            item.RelativePath = Path.GetRelativePath(folderPath, Path.GetDirectoryName(file) ?? "");
+                            if (item.RelativePath == ".") item.RelativePath = "Raíz";
+                        } catch { item.RelativePath = "N/A"; }
+                        
                         item.IsSelected = false;
                         _files.Add(item);
                     }
@@ -82,7 +94,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
 
                     if (_files.Count == 0)
                     {
-                        MessageBox.Show("No se encontraron archivos en esta carpeta.", "Carpeta vacía", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show("No se encontraron archivos multimedia en esta carpeta ni en sus subcarpetas.", "Búsqueda finalizada", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                 });
             }
@@ -90,21 +102,17 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             {
                 MessageBox.Show($"Error al cargar la carpeta: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            finally
+            {
+                IsProcessing = false;
+            }
         }
 
         public async void RefreshFolder()
         {
             if (!string.IsNullOrEmpty(_currentFolderPath))
             {
-                IsProcessing = true;
-                try
-                {
-                    await Task.Run(() => LoadFolder(_currentFolderPath));
-                }
-                finally
-                {
-                    IsProcessing = false;
-                }
+                await LoadFolder(_currentFolderPath);
             }
         }
 
@@ -251,13 +259,23 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Explorer
             IsProcessing = true;
             try
             {
+                // Limpiar previsualización para liberar bloqueos de archivos
+                Dispatcher.Invoke(() => 
+                {
+                    FileListBox.SelectedItems.Clear();
+                    ClearPreview();
+                });
+
+                // Pequeña espera para asegurar que los manejadores de archivos se liberen
+                await Task.Delay(100);
+
                 // Copiar la lista actual para evitar problemas de modificación durante el proceso
                 var filesToRename = _files.Select(f => f.FilePath).ToList();
                 
                 await Task.Run(() => FileRenamer.RenameFilesWithCollisionHandling(filesToRename));
 
                 // Refrescar la vista
-                LoadFolder(_currentFolderPath);
+                await LoadFolder(_currentFolderPath!);
             }
             catch (Exception ex)
             {

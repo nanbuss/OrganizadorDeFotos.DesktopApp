@@ -14,10 +14,8 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
         {
             var groups = new ObservableCollection<SimilarityGroup>();
 
-            // 1. Obtener archivos (rápido)
-            var imageFiles = Directory.GetFiles(folderPath)
-                .Where(f => ImageExtensions.Contains(Path.GetExtension(f).ToLower()))
-                .ToList();
+            // 1. Obtener archivos (rápido y profundo)
+            var imageFiles = FileManager.GetMediaFilesRecursively(folderPath, ImageExtensions);
 
             // 2. Cargar Metadata y Hashes en paralelo (mucho más rápido)
             var images = new List<ImageItem>();

@@ -27,11 +27,11 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
             var newPath = Path.Combine(directory, newFileName);
 
             // Manejar colisiones
-            newPath = HandleFileNameCollision(newPath);
+            newPath = HandleFileNameCollision(newPath, filePath);
 
             if (newPath != filePath)
             {
-                File.Move(filePath, newPath, overwrite: false);
+                TryMoveFileWithRetry(filePath, newPath);
             }
 
             return newPath;
@@ -49,31 +49,83 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
 
         public static List<string> RenameFilesWithCollisionHandling(IEnumerable<string> filePaths)
         {
-            var directory = Path.GetDirectoryName(filePaths.FirstOrDefault() ?? "") ?? "";
-            var newNames = new Dictionary<string, int>();
             var results = new List<string>();
+            // Diccionario para rastrear nombres usados POR CARPETA para manejar colisiones en el mismo lote
+            var directoryNewNames = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var filePath in filePaths)
             {
+                var directory = Path.GetDirectoryName(filePath) ?? "";
+                if (!directoryNewNames.ContainsKey(directory))
+                {
+                    directoryNewNames[directory] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                var newNames = directoryNewNames[directory];
                 var extension = Path.GetExtension(filePath);
                 var baseName = Path.GetFileNameWithoutExtension(GetNewFileName(filePath));
-                var newFileName = GetNewFileNameWithSuffix(baseName, extension, directory, newNames);
-                var newPath = Path.Combine(directory, newFileName);
+                
+                // 1. Obtener el sufijo basado en lo que ya hemos procesado en esta ejecución
+                var count = newNames.GetValueOrDefault(baseName, 0);
+                string newFileName;
+                string newPath;
 
+                if (count == 0)
+                {
+                    newFileName = baseName + extension;
+                }
+                else
+                {
+                    newFileName = $"{baseName}_{count:D2}{extension}";
+                }
+
+                newPath = Path.Combine(directory, newFileName);
+
+                // 2. IMPORTANTE: Verificar colisiones físicas en el disco (archivos que ya existían antes)
+                newPath = HandleFileNameCollision(newPath, filePath);
+
+                // 3. Proceder al renombrado
                 if (newPath != filePath)
                 {
-                    File.Move(filePath, newPath, overwrite: false);
+                    TryMoveFileWithRetry(filePath, newPath);
                 }
 
                 results.Add(newPath);
-                newNames[baseName] = newNames.GetValueOrDefault(baseName, 0) + 1;
+                
+                // Actualizar el contador para esta baseName en esta carpeta
+                newNames[baseName] = count + 1;
             }
 
             return results;
         }
 
-        private static string HandleFileNameCollision(string filePath)
+        private static void TryMoveFileWithRetry(string source, string destination, int maxRetries = 3)
         {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    File.Move(source, destination, overwrite: false);
+                    return;
+                }
+                catch (IOException ex) when (i < maxRetries - 1)
+                {
+                    // Si el archivo está en uso, esperamos un poco y reintentamos.
+                    // Esto suele suceder si el sistema de miniaturas o un buscador aún tiene el handle abierto.
+                    System.Threading.Thread.Sleep(200 * (i + 1));
+                }
+            }
+
+            // Si llegamos aquí, fallamos todos los intentos
+            File.Move(source, destination, overwrite: false);
+        }
+
+        private static string HandleFileNameCollision(string filePath, string? originalPath = null)
+        {
+            // Si el archivo de destino es el mismo que el original, no hay colisión
+            if (originalPath != null && string.Equals(Path.GetFullPath(filePath), Path.GetFullPath(originalPath), StringComparison.OrdinalIgnoreCase))
+                return filePath;
+
             if (!File.Exists(filePath))
                 return filePath;
 
@@ -82,29 +134,19 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
             var extension = Path.GetExtension(filePath);
             var counter = 1;
 
-            while (File.Exists(filePath))
+            // Intentar encontrar un nombre que no exista
+            string newPath = filePath;
+            while (File.Exists(newPath))
             {
-                filePath = Path.Combine(directory, $"{fileName}_{counter:D2}{extension}");
+                // Si el nombre con el contador actual coincide con el original, cortamos aquí
+                if (originalPath != null && string.Equals(Path.GetFullPath(newPath), Path.GetFullPath(originalPath), StringComparison.OrdinalIgnoreCase))
+                    return newPath;
+
+                newPath = Path.Combine(directory, $"{fileName}_{counter:D2}{extension}");
                 counter++;
             }
 
-            return filePath;
-        }
-
-        private static string GetNewFileNameWithSuffix(string baseName, string extension, string directory, Dictionary<string, int> newNames)
-        {
-            var count = newNames.GetValueOrDefault(baseName, 0);
-            if (count == 0)
-                return baseName + extension;
-
-            var newPath = Path.Combine(directory, $"{baseName}_{count:D2}{extension}");
-            while (File.Exists(newPath))
-            {
-                count++;
-                newPath = Path.Combine(directory, $"{baseName}_{count:D2}{extension}");
-            }
-
-            return Path.GetFileName(newPath);
+            return newPath;
         }
     }
 }

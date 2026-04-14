@@ -7,6 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Globalization;
 using OrganizadorDeFotos.DesktopApp.Modules;
 
 namespace OrganizadorDeFotos.DesktopApp.Views.Organization
@@ -16,6 +19,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
         private VirtualFolder? _rootFolder;
         private string _currentBaseFolderPath = string.Empty;
         private bool _isFolderLoaded;
+        private Point _dragStartPoint;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -115,13 +119,11 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             {
                 FilesListBox.ItemsSource = selectedFolder.Files;
                 CurrentPathLabel.Text = $"Carpeta virtual: {selectedFolder.Name} ({selectedFolder.Files.Count} fotos)";
-                AssignToFolderButton.IsEnabled = true;
             }
             else
             {
                 FilesListBox.ItemsSource = null;
                 CurrentPathLabel.Text = "Selecciona una carpeta para ver fotos";
-                AssignToFolderButton.IsEnabled = false;
             }
         }
 
@@ -129,6 +131,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
         {
             int count = FilesListBox.SelectedItems.Count;
             SelectionInfoLabel.Text = $"{count} fotos seleccionadas";
+            AssignToFolderButton.IsEnabled = count > 0;
         }
 
         private void AddFolder_Click(object sender, RoutedEventArgs e)
@@ -220,22 +223,422 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
         private void AssignToFolder_Click(object sender, RoutedEventArgs e)
         {
-            var targetFolder = FolderTreeView.SelectedItem as VirtualFolder;
-            if (targetFolder == null || FilesListBox.SelectedItems.Count == 0) return;
+            if (FilesListBox.SelectedItems.Count == 0 || RootFolder == null)
+            {
+                MessageBox.Show("Selecciona al menos una foto para mover.", "Atención", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            var sourceList = FilesListBox.ItemsSource as ObservableCollection<ImageItem>;
+            if (sourceList == null) return;
+
+            var menu = new ContextMenu();
+            PopulateFolderMenu(menu, RootFolder, sourceList);
+            
+            if (menu.Items.Count == 0)
+            {
+                menu.Items.Add(new MenuItem { Header = "No hay otras carpetas", IsEnabled = false });
+            }
+
+            menu.PlacementTarget = AssignToFolderButton;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+            menu.IsOpen = true;
+        }
+
+        private void PopulateFolderMenu(ItemsControl parentMenu, VirtualFolder folder, ObservableCollection<ImageItem> sourceList)
+        {
+            // Creamos un item para la carpeta actual
+            var item = new MenuItem 
+            { 
+                Header = $"📁 {folder.Name}",
+                Tag = folder
+            };
+            
+            // Si no es la carpeta donde ya están las fotos, permitimos moverlas aquí
+            if (folder.Files != sourceList)
+            {
+                item.Click += (s, ev) => MoveSelectedPhotosTo(folder, sourceList);
+            }
+            else
+            {
+                item.IsEnabled = false;
+                item.Header += " (Actual)";
+            }
+
+            // Añadimos las subcarpetas como submenús
+            foreach (var subFolder in folder.SubFolders)
+            {
+                PopulateFolderMenu(item, subFolder, sourceList);
+            }
+
+            parentMenu.Items.Add(item);
+        }
+
+        private void MoveSelectedPhotosTo(VirtualFolder targetFolder, ObservableCollection<ImageItem> sourceList)
+        {
             var selectedPhotos = FilesListBox.SelectedItems.Cast<ImageItem>().ToList();
             
-            // Encontrar de donde vienen (del View actual, que es FilesListBox.ItemsSource)
-            if (FilesListBox.ItemsSource is ObservableCollection<ImageItem> sourceList)
+            foreach (var photo in selectedPhotos)
             {
-                if (sourceList == targetFolder.Files) return; // Ya están ahí
+                sourceList.Remove(photo);
+                targetFolder.Files.Add(photo);
+            }
+        }
 
-                foreach (var photo in selectedPhotos)
+        private async void AutoOrganize_Click(object sender, RoutedEventArgs e)
+        {
+            if (RootFolder == null || !RootFolder.Files.Any())
+            {
+                MessageBox.Show("No hay archivos 'Sin asignar' en la raíz para auto-organizar.", "Información", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var window = new Window
+            {
+                Title = "Auto-Organizar",
+                Width = 400,
+                Height = 250,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this),
+                ResizeMode = ResizeMode.NoResize
+            };
+
+            var stack = new StackPanel { Margin = new Thickness(15) };
+            stack.Children.Add(new TextBlock { Text = "Esta acción organizará las fotos sin asignar de la carpeta raíz automáticamente utilizando metadatos.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 15) });
+            
+            var chkGroupByDay = new CheckBox { Content = "Agrupar también subcarpetas por día (dd.default)", Margin = new Thickness(0, 0, 0, 10), IsChecked = false };
+            stack.Children.Add(chkGroupByDay);
+
+            var txtPreview = new TextBlock { Text = "Estructura:\nAño > Mes (ej. 01.Enero)\n  > (Tus fotos)", Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 15) };
+            stack.Children.Add(txtPreview);
+
+            chkGroupByDay.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero) > Día (ej. 15.default)\n  > (Tus fotos)";
+            chkGroupByDay.Unchecked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero)\n  > (Tus fotos)";
+
+            var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var btnOk = new Button { Content = "Iniciar", Padding = new Thickness(15, 5, 15, 5), IsDefault = true, Margin = new Thickness(0, 0, 10, 0) };
+            var btnCancel = new Button { Content = "Cancelar", Padding = new Thickness(15, 5, 15, 5), IsCancel = true };
+            
+            btnOk.Click += (s, ev) => { window.DialogResult = true; window.Close(); };
+            
+            btnPanel.Children.Add(btnOk);
+            btnPanel.Children.Add(btnCancel);
+            stack.Children.Add(btnPanel);
+            
+            window.Content = stack;
+
+            if (window.ShowDialog() == true)
+            {
+                bool useDay = chkGroupByDay.IsChecked == true;
+                await Task.Run(() => PerformAutoOrganization(useDay));
+                ExpandAllNodes(FolderTreeView.Items);
+            }
+        }
+
+        private void PerformAutoOrganization(bool includeDay)
+        {
+            var cultureInfo = new CultureInfo("es-ES");
+            
+            Dispatcher.Invoke(() =>
+            {
+                var filesToOrganize = RootFolder!.Files.ToList();
+                foreach (var file in filesToOrganize)
                 {
-                    sourceList.Remove(photo);
-                    targetFolder.Files.Add(photo);
+                    var date = DateExtractor.GetCaptureDate(file.FilePath) ?? System.IO.File.GetLastWriteTime(file.FilePath);
+                    
+                    string yearFolderName = date.Year.ToString();
+                    string monthFolderName = $"{date.Month:D2}.{cultureInfo.TextInfo.ToTitleCase(cultureInfo.DateTimeFormat.GetMonthName(date.Month))}";
+                    
+                    var yearFolder = GetOrCreateFolder(RootFolder, yearFolderName);
+                    var monthFolder = GetOrCreateFolder(yearFolder, monthFolderName);
+                    
+                    VirtualFolder targetFolder = monthFolder;
+                    
+                    if (includeDay)
+                    {
+                        // Usamos el formato yyyy-MM-dd para el día
+                        string dayFolderName = date.ToString("yyyy-MM-dd");
+                        targetFolder = GetOrCreateFolder(monthFolder, dayFolderName);
+                    }
+                    
+                    RootFolder.Files.Remove(file);
+                    targetFolder.Files.Add(file);
+                }
+            });
+        }
+
+        private VirtualFolder GetOrCreateFolder(VirtualFolder parent, string name)
+        {
+            var folder = parent.SubFolders.FirstOrDefault(f => f.Name == name);
+            if (folder == null)
+            {
+                folder = new VirtualFolder(name);
+                parent.SubFolders.Add(folder);
+            }
+            return folder;
+        }
+
+        private void ExpandAllNodes(ItemCollection items)
+        {
+            foreach (var item in items)
+            {
+                var treeItem = FolderTreeView.ItemContainerGenerator.ContainerFromItem(item) as TreeViewItem;
+                if (treeItem != null)
+                {
+                    treeItem.IsExpanded = true;
+                    if (treeItem.HasItems)
+                    {
+                        ExpandAllNodes(treeItem.Items);
+                    }
                 }
             }
+        }
+
+        private void FilesListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void FilesListBox_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && FilesListBox.SelectedItems.Count > 0)
+            {
+                Point mousePos = e.GetPosition(null);
+                Vector diff = _dragStartPoint - mousePos;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    var selectedPhotos = FilesListBox.SelectedItems.Cast<ImageItem>().ToList();
+                    if (FilesListBox.ItemsSource is ObservableCollection<ImageItem> sourceList)
+                    {
+                        var data = new DataObject();
+                        data.SetData("Photos", selectedPhotos);
+                        data.SetData("SourceList", sourceList);
+                        DragDrop.DoDragDrop(FilesListBox, data, DragDropEffects.Move);
+                    }
+                }
+            }
+        }
+
+        private void FolderTreeView_DragEnter(object sender, DragEventArgs e)
+        {
+            bool isCompatible = e.Data.GetDataPresent("Photos") || e.Data.GetDataPresent("VirtualFolder");
+            e.Effects = isCompatible ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void FolderTreeView_DragOver(object sender, DragEventArgs e)
+        {
+            bool isCompatible = e.Data.GetDataPresent("Photos") || e.Data.GetDataPresent("VirtualFolder");
+            e.Effects = isCompatible ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+            
+            var item = VisualUpwardSearch<TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (item != null)
+            {
+                // Validación para carpetas: No permitir soltar en sí misma o en hijos
+                if (e.Data.GetDataPresent("VirtualFolder"))
+                {
+                    var draggedFolder = e.Data.GetData("VirtualFolder") as VirtualFolder;
+                    var targetFolder = item.DataContext as VirtualFolder;
+                    if (draggedFolder != null && targetFolder != null)
+                    {
+                        if (IsFolderChildOf(targetFolder, draggedFolder))
+                        {
+                            e.Effects = DragDropEffects.None;
+                            item.Background = Brushes.LightCoral; // Feedback de error
+                            return;
+                        }
+                    }
+                }
+                item.Background = Brushes.LightBlue;
+            }
+        }
+
+        private bool IsFolderChildOf(VirtualFolder potentialChild, VirtualFolder potentialParent)
+        {
+            if (potentialChild == potentialParent) return true;
+            var current = potentialChild.Parent;
+            while (current != null)
+            {
+                if (current == potentialParent) return true;
+                current = current.Parent;
+            }
+            return false;
+        }
+
+        private void FolderTreeView_DragLeave(object sender, DragEventArgs e)
+        {
+            var item = VisualUpwardSearch<TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (item != null)
+            {
+                item.Background = Brushes.Transparent;
+            }
+        }
+
+        private void FolderTreeView_Drop(object sender, DragEventArgs e)
+        {
+            var item = VisualUpwardSearch<TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (item != null)
+            {
+                item.Background = Brushes.Transparent;
+                var targetFolder = item.DataContext as VirtualFolder;
+                if (targetFolder == null) return;
+
+                // Caso A: Soltando FOTOS
+                if (e.Data.GetDataPresent("Photos"))
+                {
+                    var photos = e.Data.GetData("Photos") as List<ImageItem>;
+                    var sourceList = e.Data.GetData("SourceList") as ObservableCollection<ImageItem>;
+                    
+                    if (photos != null && sourceList != null && sourceList != targetFolder.Files)
+                    {
+                        foreach (var photo in photos.ToList())
+                        {
+                            sourceList.Remove(photo);
+                            targetFolder.Files.Add(photo);
+                        }
+                    }
+                }
+                // Caso B: Soltando UNA CARPETA
+                else if (e.Data.GetDataPresent("VirtualFolder"))
+                {
+                    var draggedFolder = e.Data.GetData("VirtualFolder") as VirtualFolder;
+                    if (draggedFolder != null && draggedFolder != targetFolder && draggedFolder != RootFolder)
+                    {
+                        if (!IsFolderChildOf(targetFolder, draggedFolder))
+                        {
+                            // Remover del padre actual
+                            if (draggedFolder.Parent != null)
+                            {
+                                draggedFolder.Parent.SubFolders.Remove(draggedFolder);
+                            }
+                            // Agregar al nuevo padre
+                            targetFolder.SubFolders.Add(draggedFolder);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void FolderTreeView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void FolderTreeView_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                Point mousePos = e.GetPosition(null);
+                Vector diff = _dragStartPoint - mousePos;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    var treeViewItem = VisualUpwardSearch<TreeViewItem>(e.OriginalSource as DependencyObject);
+                    if (treeViewItem != null && treeViewItem.DataContext is VirtualFolder folder && folder != RootFolder)
+                    {
+                        var data = new DataObject();
+                        data.SetData("VirtualFolder", folder);
+                        DragDrop.DoDragDrop(FolderTreeView, data, DragDropEffects.Move);
+                    }
+                }
+            }
+        }
+
+        private async void Finalize_Click(object sender, RoutedEventArgs e)
+        {
+            if (RootFolder == null) return;
+
+            var result = MessageBox.Show(
+                "¿Estás seguro de que deseas aplicar los cambios?\n\n- Se crearán carpetas reales en tu disco.\n- Las fotos y videos se moverán físicamente a sus nuevas ubicaciones.\n\n⚠️ ESTA ACCIÓN ES PERMANENTE Y NO SE PUEDE DESHACER.",
+                "Confirmar Organización Final",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            LoadingOverlay.Visibility = Visibility.Visible;
+            var textBlock = LoadingOverlay.Child as StackPanel;
+            if (textBlock?.Children[1] is TextBlock label) label.Text = "Moviendo archivos físicamente...";
+
+            try
+            {
+                await Task.Run(() => ExecutePhysicalMovement(RootFolder, _currentBaseFolderPath));
+                MessageBox.Show("¡Los archivos se han organizado correctamente!", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+                
+                // Recargamos la carpeta para ver el resultado real
+                SetFolder(_currentBaseFolderPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ocurrió un error parcial durante el movimiento: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void ExecutePhysicalMovement(VirtualFolder folder, string targetPath)
+        {
+            // 1. Asegurar que la carpeta física existe (excepto si es el root que ya sabemos que existe)
+            if (!Directory.Exists(targetPath))
+            {
+                Directory.CreateDirectory(targetPath);
+            }
+
+            // 2. Mover los archivos de esta carpeta virtual a la carpeta física
+            foreach (var fileItem in folder.Files.ToList())
+            {
+                string sourceFile = fileItem.FilePath;
+                string destFile = Path.Combine(targetPath, Path.GetFileName(sourceFile));
+
+                if (sourceFile != destFile)
+                {
+                    try
+                    {
+                        // Si ya existe un archivo con ese nombre en el destino, le agregamos un sufijo
+                        if (File.Exists(destFile))
+                        {
+                            string fileName = Path.GetFileNameWithoutExtension(destFile);
+                            string ext = Path.GetExtension(destFile);
+                            int counter = 1;
+                            while (File.Exists(destFile))
+                            {
+                                destFile = Path.Combine(targetPath, $"{fileName}_{counter++}{ext}");
+                            }
+                        }
+
+                        File.Move(sourceFile, destFile);
+                    }
+                    catch (Exception)
+                    {
+                        // Ignoramos errores individuales para continuar con el resto
+                    }
+                }
+            }
+
+            // 3. Procesar subcarpetas recursivamente
+            foreach (var subFolder in folder.SubFolders)
+            {
+                string subFolderPath = Path.Combine(targetPath, subFolder.Name);
+                ExecutePhysicalMovement(subFolder, subFolderPath);
+            }
+        }
+
+        private static T? VisualUpwardSearch<T>(DependencyObject? source) where T : DependencyObject
+        {
+            while (source != null && !(source is T))
+            {
+                if (source is System.Windows.Documents.Run)
+                   source = LogicalTreeHelper.GetParent(source);
+                else
+                   source = VisualTreeHelper.GetParent(source);
+            }
+            return source as T;
         }
 
         protected void OnPropertyChanged(string propertyName)

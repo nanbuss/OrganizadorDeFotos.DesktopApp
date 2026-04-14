@@ -18,9 +18,9 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
         public static async Task<List<TrashCandidate>> FindTrashCandidatesAsync(string folderPath)
         {
             var candidates = new System.Collections.Concurrent.ConcurrentBag<TrashCandidate>();
-            var imageFiles = Directory.GetFiles(folderPath)
-                .Where(f => ImageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .ToList();
+            
+            // Usar el buscador recursivo centralizado
+            var imageFiles = FileManager.GetMediaFilesRecursively(folderPath, ImageExtensions);
 
             await Parallel.ForEachAsync(imageFiles, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, async (filePath, ct) =>
             {
