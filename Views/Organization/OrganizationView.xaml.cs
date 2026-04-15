@@ -1,15 +1,12 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using OrganizadorDeFotos.DesktopApp.Modules;
 
 namespace OrganizadorDeFotos.DesktopApp.Views.Organization
@@ -78,7 +75,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
         private VirtualFolder LoadStructure(string path)
         {
             var folder = new VirtualFolder(Path.GetFileName(path));
-            
+
             // Cargar archivos de esta carpeta (raíz o subcarpeta real)
             var files = Directory.GetFiles(path)
                 .Where(f => IsMediaFile(f))
@@ -148,7 +145,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
             var newFolder = new VirtualFolder(newName);
             selectedFolder.SubFolders.Add(newFolder);
-            
+
             // Auto-expandir si es posible (requiere manejo del TreeView.ItemContainerGenerator o Bindings)
         }
 
@@ -171,7 +168,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             var stack = new StackPanel { Margin = new Thickness(10) };
             var textBox = new TextBox { Text = oldName, Margin = new Thickness(0, 0, 0, 10) };
             var button = new Button { Content = "Renombrar", IsDefault = true };
-            
+
             button.Click += (s, ev) => { window.DialogResult = true; window.Close(); };
             stack.Children.Add(new TextBlock { Text = "Nuevo nombre:", Margin = new Thickness(0, 0, 0, 5) });
             stack.Children.Add(textBox);
@@ -191,7 +188,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
             if (selectedFolder.Files.Any() || selectedFolder.SubFolders.Any())
             {
-                var result = MessageBox.Show($"La carpeta '{selectedFolder.Name}' contiene archivos o subcarpetas virtuales. ¿Seguro que quieres eliminarla? (Los archivos volverán a la carpeta padre)", 
+                var result = MessageBox.Show($"La carpeta '{selectedFolder.Name}' contiene archivos o subcarpetas virtuales. ¿Seguro que quieres eliminarla? (Los archivos volverán a la carpeta padre)",
                     "Confirmar eliminación", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (result != MessageBoxResult.Yes) return;
             }
@@ -234,7 +231,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
             var menu = new ContextMenu();
             PopulateFolderMenu(menu, RootFolder, sourceList);
-            
+
             if (menu.Items.Count == 0)
             {
                 menu.Items.Add(new MenuItem { Header = "No hay otras carpetas", IsEnabled = false });
@@ -248,12 +245,12 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
         private void PopulateFolderMenu(ItemsControl parentMenu, VirtualFolder folder, ObservableCollection<ImageItem> sourceList)
         {
             // Creamos un item para la carpeta actual
-            var item = new MenuItem 
-            { 
+            var item = new MenuItem
+            {
                 Header = $"📁 {folder.Name}",
                 Tag = folder
             };
-            
+
             // Si no es la carpeta donde ya están las fotos, permitimos moverlas aquí
             if (folder.Files != sourceList)
             {
@@ -277,7 +274,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
         private void MoveSelectedPhotosTo(VirtualFolder targetFolder, ObservableCollection<ImageItem> sourceList)
         {
             var selectedPhotos = FilesListBox.SelectedItems.Cast<ImageItem>().ToList();
-            
+
             foreach (var photo in selectedPhotos)
             {
                 sourceList.Remove(photo);
@@ -305,62 +302,109 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
             var stack = new StackPanel { Margin = new Thickness(15) };
             stack.Children.Add(new TextBlock { Text = "Esta acción organizará las fotos sin asignar de la carpeta raíz automáticamente utilizando metadatos.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 15) });
-            
-            var chkGroupByDay = new CheckBox { Content = "Agrupar también subcarpetas por día (dd.default)", Margin = new Thickness(0, 0, 0, 10), IsChecked = false };
-            stack.Children.Add(chkGroupByDay);
 
-            var txtPreview = new TextBlock { Text = "Estructura:\nAño > Mes (ej. 01.Enero)\n  > (Tus fotos)", Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 15) };
+            stack.Children.Add(new TextBlock { Text = "Selecciona el formato de organización:", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });
+
+            var rbNestedDay = new RadioButton { Content = "Año / Mes / Día - Varias", Margin = new Thickness(0, 0, 0, 5) };
+            var rbNestedMonth = new RadioButton { Content = "Año / Mes - Varias", Margin = new Thickness(0, 0, 0, 5), IsChecked = true };
+            var rbFlatMonth = new RadioButton { Content = "Año.Mes - Varias (Un solo nivel)", Margin = new Thickness(0, 0, 0, 10) };
+
+            stack.Children.Add(rbNestedDay);
+            stack.Children.Add(rbNestedMonth);
+            stack.Children.Add(rbFlatMonth);
+
+            var txtPreview = new TextBlock { Text = "Estructura:\nAño > Mes (ej. 01.Enero - Varias)\n  > (Tus fotos)", Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 15) };
             stack.Children.Add(txtPreview);
 
-            chkGroupByDay.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero) > Día (ej. 15.default)\n  > (Tus fotos)";
-            chkGroupByDay.Unchecked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero)\n  > (Tus fotos)";
+            rbNestedDay.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero) > Día (ej. 15 - Varias)\n  > (Tus fotos)";
+            rbNestedMonth.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero - Varias)\n  > (Tus fotos)";
+            rbFlatMonth.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño.Mes - Varias (ej. 2023.10 - Varias)\n  > (Tus fotos)";
 
             var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var btnOk = new Button { Content = "Iniciar", Padding = new Thickness(15, 5, 15, 5), IsDefault = true, Margin = new Thickness(0, 0, 10, 0) };
             var btnCancel = new Button { Content = "Cancelar", Padding = new Thickness(15, 5, 15, 5), IsCancel = true };
-            
+
             btnOk.Click += (s, ev) => { window.DialogResult = true; window.Close(); };
-            
+
             btnPanel.Children.Add(btnOk);
             btnPanel.Children.Add(btnCancel);
             stack.Children.Add(btnPanel);
-            
+
             window.Content = stack;
 
             if (window.ShowDialog() == true)
             {
-                bool useDay = chkGroupByDay.IsChecked == true;
-                await Task.Run(() => PerformAutoOrganization(useDay));
+                int format = rbNestedDay.IsChecked == true ? 1 : (rbNestedMonth.IsChecked == true ? 2 : 3);
+                await Task.Run(() => PerformAutoOrganization(format));
                 ExpandAllNodes(FolderTreeView.Items);
             }
         }
 
-        private void PerformAutoOrganization(bool includeDay)
+        private void PerformAutoOrganization(int format)
         {
             var cultureInfo = new CultureInfo("es-ES");
-            
+
             Dispatcher.Invoke(() =>
             {
                 var filesToOrganize = RootFolder!.Files.ToList();
                 foreach (var file in filesToOrganize)
                 {
-                    var date = DateExtractor.GetCaptureDate(file.FilePath) ?? System.IO.File.GetLastWriteTime(file.FilePath);
-                    
-                    string yearFolderName = date.Year.ToString();
-                    string monthFolderName = $"{date.Month:D2}.{cultureInfo.TextInfo.ToTitleCase(cultureInfo.DateTimeFormat.GetMonthName(date.Month))}";
-                    
-                    var yearFolder = GetOrCreateFolder(RootFolder, yearFolderName);
-                    var monthFolder = GetOrCreateFolder(yearFolder, monthFolderName);
-                    
-                    VirtualFolder targetFolder = monthFolder;
-                    
-                    if (includeDay)
+                    var captureDate = DateExtractor.GetCaptureDate(file.FilePath);
+
+                    if (!captureDate.HasValue)
                     {
-                        // Usamos el formato yyyy-MM-dd para el día
-                        string dayFolderName = date.ToString("yyyy-MM-dd");
-                        targetFolder = GetOrCreateFolder(monthFolder, dayFolderName);
+                        var fileName = Path.GetFileNameWithoutExtension(file.FilePath);
+
+                        // Si falla DateExtractor (porque la fecha del sistema es basura y el nombre no coincide exactamente con patrones conocidos),
+                        // intentamos ver si el archivo YA fue renombrado con nuestro formato patrón: yyyyMMdd_HHmmss
+                        var match = Regex.Match(fileName, @"^(\d{8})_(\d{6})$");
+                        if (match.Success)
+                        {
+                            if (DateTime.TryParseExact(fileName, "yyyyMMdd_HHmmss", null, DateTimeStyles.None, out DateTime parsedDate))
+                            {
+                                if (parsedDate.Year > 2000)
+                                    captureDate = parsedDate;
+                            }
+                        }
                     }
-                    
+
+                    if (!captureDate.HasValue)
+                    {
+                        // Si después de todo no hay fecha válida, mover a una carpeta especial
+                        var unknownFolder = GetOrCreateFolder(RootFolder, "Inclasificables");
+                        RootFolder.Files.Remove(file);
+                        unknownFolder.Files.Add(file);
+                        continue;
+                    }
+
+                    var date = captureDate.Value;
+
+                    VirtualFolder targetFolder = RootFolder;
+
+                    if (format == 1) // aaaa/mm.MM/dd - varias
+                    {
+                        string yearName = date.Year.ToString();
+                        string monthName = $"{date.Month:D2}.{cultureInfo.TextInfo.ToTitleCase(cultureInfo.DateTimeFormat.GetMonthName(date.Month))}";
+                        string dayName = $"{date.Day:D2} - Varias";
+
+                        var yearF = GetOrCreateFolder(RootFolder, yearName);
+                        var monthF = GetOrCreateFolder(yearF, monthName);
+                        targetFolder = GetOrCreateFolder(monthF, dayName);
+                    }
+                    else if (format == 2) // aaaa/mm.MM - varias
+                    {
+                        string yearName = date.Year.ToString();
+                        string monthName = $"{date.Month:D2}.{cultureInfo.TextInfo.ToTitleCase(cultureInfo.DateTimeFormat.GetMonthName(date.Month))} - Varias";
+
+                        var yearF = GetOrCreateFolder(RootFolder, yearName);
+                        targetFolder = GetOrCreateFolder(yearF, monthName);
+                    }
+                    else if (format == 3) // aaaa.mm - varias
+                    {
+                        string folderName = $"{date.Year}.{date.Month:D2} - Varias";
+                        targetFolder = GetOrCreateFolder(RootFolder, folderName);
+                    }
+
                     RootFolder.Files.Remove(file);
                     targetFolder.Files.Add(file);
                 }
@@ -433,7 +477,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             bool isCompatible = e.Data.GetDataPresent("Photos") || e.Data.GetDataPresent("VirtualFolder");
             e.Effects = isCompatible ? DragDropEffects.Move : DragDropEffects.None;
             e.Handled = true;
-            
+
             var item = VisualUpwardSearch<TreeViewItem>(e.OriginalSource as DependencyObject);
             if (item != null)
             {
@@ -491,7 +535,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
                 {
                     var photos = e.Data.GetData("Photos") as List<ImageItem>;
                     var sourceList = e.Data.GetData("SourceList") as ObservableCollection<ImageItem>;
-                    
+
                     if (photos != null && sourceList != null && sourceList != targetFolder.Files)
                     {
                         foreach (var photo in photos.ToList())
@@ -568,7 +612,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             {
                 await Task.Run(() => ExecutePhysicalMovement(RootFolder, _currentBaseFolderPath));
                 MessageBox.Show("¡Los archivos se han organizado correctamente!", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
-                
+
                 // Recargamos la carpeta para ver el resultado real
                 SetFolder(_currentBaseFolderPath);
             }
@@ -634,9 +678,9 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             while (source != null && !(source is T))
             {
                 if (source is System.Windows.Documents.Run)
-                   source = LogicalTreeHelper.GetParent(source);
+                    source = LogicalTreeHelper.GetParent(source);
                 else
-                   source = VisualTreeHelper.GetParent(source);
+                    source = VisualTreeHelper.GetParent(source);
             }
             return source as T;
         }

@@ -23,6 +23,11 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
                 Parallel.ForEach(imageFiles, file => {
                     try {
                         var item = ImageItem.FromFile(file);
+                        
+                        // Calcular ruta relativa para mostrar la ubicación
+                        string relative = Path.GetRelativePath(folderPath, Path.GetDirectoryName(file) ?? folderPath);
+                        item.RelativePath = (relative == ".") ? "Raíz" : relative;
+
                         lock(images) { images.Add(item); }
                     } catch { /* Ignorar corruptos */ }
                 });

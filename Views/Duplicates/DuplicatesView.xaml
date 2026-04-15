@@ -71,11 +71,15 @@
                             <Grid Margin="5" MinWidth="320">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
+                                <!-- Ubicación (Carpeta) -->
+                                <TextBlock Grid.Row="0" Text="{Binding RelativePath}" Foreground="#999999" FontSize="10" Margin="5,0,5,2" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}"/>
+
                                 <!-- Panel de Información -->
-                                <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#D0D0D0" BorderThickness="1" Padding="5" Margin="0,0,0,5">
+                                <Border Grid.Row="1" Background="#F0F0F0" BorderBrush="#D0D0D0" BorderThickness="1" Padding="5" Margin="0,0,0,5">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -91,7 +95,7 @@
                                 </Border>
 
                                 <!-- Imagen con lupa y badge -->
-                                <Border Grid.Row="1" CornerRadius="10" BorderThickness="1" Background="White">
+                                <Border Grid.Row="2" CornerRadius="10" BorderThickness="1" Background="White">
                                     <Border.Style>
                                         <Style TargetType="Border">
                                             <Setter Property="BorderBrush" Value="#D0D0D0"/>
@@ -133,6 +137,7 @@
             <!-- Botón Procesar Grupo + Configuración -->
             <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="12">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="ProcessAllButton" Content="✅ Procesar Todo" Click="ProcessAll_Click" Padding="10" Background="#0078D4" Foreground="White" FontSize="12" Margin="0,0,8,0" IsEnabled="{Binding HasDuplicates}"/>
                     <Button x:Name="SettingsButton" Content="⚙️ Configuración" Click="SettingsButton_Click" Padding="10" Background="#6C757D" Foreground="White" FontSize="12" Margin="0,0,8,0"/>
                     <Button x:Name="ProcessGroupButton" Content="Procesar Grupo" Click="ProcessGroupButton_Click" Padding="10" Background="#28A745" Foreground="White" FontSize="12" IsEnabled="False"/>
                 </StackPanel>

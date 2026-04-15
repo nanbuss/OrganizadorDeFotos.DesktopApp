@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -194,6 +196,67 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Duplicates
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al procesar grupo: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void ProcessAll_Click(object sender, RoutedEventArgs e)
+        {
+            if (_similarityGroups.Count == 0) return;
+
+            int totalToKeep = 0;
+            int totalToDiscard = 0;
+            var pathsToDiscard = new List<string>();
+
+            foreach (var group in _similarityGroups)
+            {
+                totalToKeep += group.Images.Count(i => i.IsSelected);
+                var toDiscard = group.Images.Where(i => !i.IsSelected).ToList();
+                totalToDiscard += toDiscard.Count;
+                pathsToDiscard.AddRange(toDiscard.Select(i => i.FilePath));
+            }
+
+            if (totalToDiscard == 0)
+            {
+                MessageBox.Show("No hay imágenes marcadas para descartar en ningún grupo.", "Información", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"Se procesarán los {_similarityGroups.Count} grupos analizados:\n\n" +
+                $"• Se conservarán: {totalToKeep} imágenes\n" +
+                $"• Se descartarán: {totalToDiscard} imágenes\n\n" +
+                $"Las imágenes descartadas se moverán físicamente a la carpeta _AUXILIAR/Similares.\n" +
+                $"¿Deseas continuar?",
+                "Confirmar Procesamiento Global",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            IsProcessing = true;
+            try
+            {
+                await Task.Run(() => FileManager.MoveFilesToAuxiliar(
+                    pathsToDiscard,
+                    CurrentFolderPath,
+                    "Similares"));
+
+                _similarityGroups.Clear();
+                _selectedGroup = null;
+                GroupPreviewItemsControl.ItemsSource = null;
+                ProcessGroupButton.IsEnabled = false;
+                HasDuplicates = false;
+                HasNoDuplicates = true;
+
+                MessageBox.Show($"✓ Procesamiento completado. {totalToDiscard} imágenes movidas a la carpeta auxiliar.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al procesar todos los grupos: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
             }
         }
 
