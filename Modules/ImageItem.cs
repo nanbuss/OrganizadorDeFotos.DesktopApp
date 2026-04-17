@@ -118,12 +118,24 @@ namespace OrganizadorDeFotos.DesktopApp.Modules
 
                 if (imageExtensions.Contains(extension))
                 {
-                    // Solo para imágenes: hash y dimensiones
-                    PerceptualHash = ImageHasher.CalcularPHash(FilePath);
-                    
-                    using var image = SixLabors.ImageSharp.Image.Load(FilePath);
-                    Width = image.Width;
-                    Height = image.Height;
+                    try 
+                    {
+                        // Solo para imágenes: hash y dimensiones
+                        PerceptualHash = ImageHasher.CalcularPHash(FilePath);
+                        
+                        // USAR Identify EN LUGAR DE Load: 
+                        // Identify solo lee la cabecera (rápido, poca memoria)
+                        var info = SixLabors.ImageSharp.Image.Identify(FilePath);
+                        if (info != null)
+                        {
+                            Width = info.Width;
+                            Height = info.Height;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                         System.Diagnostics.Debug.WriteLine($"Error al identificar dimensiones de {FilePath}: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)

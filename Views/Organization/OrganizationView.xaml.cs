@@ -77,26 +77,40 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             var folder = new VirtualFolder(Path.GetFileName(path));
 
             // Cargar archivos de esta carpeta (raíz o subcarpeta real)
-            var files = Directory.GetFiles(path)
-                .Where(f => IsMediaFile(f))
-                .ToList();
-
-            foreach (var file in files)
+            try
             {
-                // Usar Dispatcher para cargar miniaturas si es necesario, 
-                // pero ImageItem las carga on-demand vía propiedad ImageSource
-                folder.Files.Add(ImageItem.FromFile(file));
+                var files = Directory.GetFiles(path)
+                    .Where(f => IsMediaFile(f))
+                    .ToList();
+
+                foreach (var file in files)
+                {
+                    // ¡LAZY LOAD!: No cargamos metadatos profundos (ImageSharp) ni miniaturas aquí.
+                    // Esto hace que la carga inicial de la estructura sea casi instantánea.
+                    folder.Files.Add(ImageItem.FromFile(file, loadMetadata: false));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error al acceder a archivos en {path}: {ex.Message}");
             }
 
             // Cargar subcarpetas reales recursivamente
-            var subDirs = Directory.GetDirectories(path)
-                .Where(d => !Path.GetFileName(d).StartsWith("_")) // Ignorar auxiliares
-                .OrderBy(d => d)
-                .ToList();
-
-            foreach (var dir in subDirs)
+            try
             {
-                folder.SubFolders.Add(LoadStructure(dir));
+                var subDirs = Directory.GetDirectories(path)
+                    .Where(d => !Path.GetFileName(d).StartsWith("_")) // Ignorar auxiliares
+                    .OrderBy(d => d)
+                    .ToList();
+
+                foreach (var dir in subDirs)
+                {
+                    folder.SubFolders.Add(LoadStructure(dir));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error al acceder a subdirectorios en {path}: {ex.Message}");
             }
 
             return folder;
@@ -109,13 +123,38 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             return allowed.Contains(ext);
         }
 
-        private void FolderTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        private async void FolderTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             var selectedFolder = FolderTreeView.SelectedItem as VirtualFolder;
             if (selectedFolder != null)
             {
                 FilesListBox.ItemsSource = selectedFolder.Files;
                 CurrentPathLabel.Text = $"Carpeta virtual: {selectedFolder.Name} ({selectedFolder.Files.Count} fotos)";
+
+                // --- Lazy Load de Metadatos ---
+                // Cargamos miniaturas y datos profundos solo para la carpeta seleccionada.
+                // Lo hacemos en segundo plano para no congelar la UI si hay muchas fotos.
+                var filesToProcess = selectedFolder.Files.ToList();
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        foreach (var file in filesToProcess)
+                        {
+                            // Si no tiene fecha de captura, es probable que no se haya cargado su metadata aún
+                            if (!file.CaptureDate.HasValue)
+                            {
+                                file.UpdateMetadata();
+                                // Forzamos notificación de cambio para que la UI se actualice con los nuevos datos (si los hay)
+                                // Nota: ImageSource se cargará on-demand cuando el item se pinte en el wrap panel.
+                            }
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error en el lazy loading de la carpeta: {ex.Message}");
+                }
             }
             else
             {
@@ -159,10 +198,11 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             var window = new Window
             {
                 Title = "Renombrar Carpeta",
-                Width = 300,
-                Height = 150,
+                Width = 350,
+                SizeToContent = SizeToContent.Height,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = Window.GetWindow(this)
+                Owner = Window.GetWindow(this),
+                ResizeMode = ResizeMode.NoResize
             };
 
             var stack = new StackPanel { Margin = new Thickness(10) };
@@ -293,8 +333,8 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             var window = new Window
             {
                 Title = "Auto-Organizar",
-                Width = 400,
-                Height = 250,
+                Width = 450,
+                SizeToContent = SizeToContent.Height,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Owner = Window.GetWindow(this),
                 ResizeMode = ResizeMode.NoResize
@@ -307,7 +347,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
             var rbNestedDay = new RadioButton { Content = "Año / Mes / Día - Varias", Margin = new Thickness(0, 0, 0, 5) };
             var rbNestedMonth = new RadioButton { Content = "Año / Mes - Varias", Margin = new Thickness(0, 0, 0, 5), IsChecked = true };
-            var rbFlatMonth = new RadioButton { Content = "Año.Mes - Varias (Un solo nivel)", Margin = new Thickness(0, 0, 0, 10) };
+            var rbFlatMonth = new RadioButton { Content = "Año.Mes Varias (Un solo nivel)", Margin = new Thickness(0, 0, 0, 10) };
 
             stack.Children.Add(rbNestedDay);
             stack.Children.Add(rbNestedMonth);
@@ -318,7 +358,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
 
             rbNestedDay.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero) > Día (ej. 15 - Varias)\n  > (Tus fotos)";
             rbNestedMonth.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño > Mes (ej. 01.Enero - Varias)\n  > (Tus fotos)";
-            rbFlatMonth.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño.Mes - Varias (ej. 2023.10 - Varias)\n  > (Tus fotos)";
+            rbFlatMonth.Checked += (s, ev) => txtPreview.Text = "Estructura:\nAño.Mes - Varias (ej. 2023.10 Varias)\n  > (Tus fotos)";
 
             var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var btnOk = new Button { Content = "Iniciar", Padding = new Thickness(15, 5, 15, 5), IsDefault = true, Margin = new Thickness(0, 0, 10, 0) };
@@ -340,16 +380,32 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
             }
         }
 
-        private void PerformAutoOrganization(int format)
+        private async void PerformAutoOrganization(int format)
         {
             var cultureInfo = new CultureInfo("es-ES");
 
+            // 1. Cargamos metadatos en segundo plano (FUERA del Dispatcher)
+            // Esto evita que la aplicación se congele mientras procesa cientos de archivos
+            var filesToOrganize = RootFolder!.Files.ToList();
+
+            await Task.Run(() =>
+            {
+                Parallel.ForEach(filesToOrganize, file =>
+                {
+                    if (!file.CaptureDate.HasValue)
+                    {
+                        file.UpdateMetadata();
+                    }
+                });
+            });
+
+            // 2. Ejecutamos la organización lógica en el Dispatcher (ya que altera colecciones UI)
             Dispatcher.Invoke(() =>
             {
-                var filesToOrganize = RootFolder!.Files.ToList();
                 foreach (var file in filesToOrganize)
                 {
-                    var captureDate = DateExtractor.GetCaptureDate(file.FilePath);
+                    // En este punto, CaptureDate ya debería tener valor si fue posible extraerlo
+                    var captureDate = file.CaptureDate;
 
                     if (!captureDate.HasValue)
                     {
@@ -401,7 +457,7 @@ namespace OrganizadorDeFotos.DesktopApp.Views.Organization
                     }
                     else if (format == 3) // aaaa.mm - varias
                     {
-                        string folderName = $"{date.Year}.{date.Month:D2} - Varias";
+                        string folderName = $"{date.Year}.{date.Month:D2} Varias";
                         targetFolder = GetOrCreateFolder(RootFolder, folderName);
                     }
 

@@ -107,13 +107,22 @@ namespace OrganizadorDeFotos.DesktopApp
             // Ignorar cambios de selección que provengan de controles internos como ListBox.
             if (e.OriginalSource != MainTabControl) return;
 
-            // Actualizar vista explorador
-            if (MainTabControl.SelectedIndex == 0 && !string.IsNullOrEmpty(_currentFolderPath))
+            if (string.IsNullOrEmpty(_currentFolderPath)) return;
+
+            // Sincronizar la vista seleccionada con el estado actual del disco
+            // (especialmente importante si se renombraron archivos en otro tab)
+            switch (MainTabControl.SelectedIndex)
             {
-                ExplorerViewControl.RefreshFolder();
+                case 0: // Explorador
+                    ExplorerViewControl.RefreshFolder();
+                    break;
+                case 2: // Limpieza
+                    CleaningViewControl.SetFolder(_currentFolderPath);
+                    break;
+                case 4: // Organización
+                    OrganizationViewControl.SetFolder(_currentFolderPath);
+                    break;
             }
-
-
         }
     }
 }
